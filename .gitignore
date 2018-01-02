@@ -1,6 +1,7 @@
 *.o
 *.pyc
 __pycache__/
+.vscode/
 doc/_build/
 dist/
 MANIFEST
