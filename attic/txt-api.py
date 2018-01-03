@@ -2890,13 +2890,13 @@ class ftrobopy(ftTXT):
 
 TXT = ftrobopy('auto')
 
-print("Start, hallo Lauri...")
+print("Start ...")
 
 
 Motor_rechts = TXT.motor(1)
 Motor_links = TXT.motor(2)
 Ultraschall = TXT.ultrasonic(8)
-time.sleep(2)
+time.sleep(2) # wait until initilized
 Motor_rechts.setSpeed(-512)
 Motor_links.setSpeed(-512)
 Motor_rechts.setDistance(1000, syncto=Motor_links)
