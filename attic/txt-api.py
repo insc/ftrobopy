@@ -62,14 +62,6 @@ class ftTXT(object):
         self._port = port
         self._ser_port = serport
         self._directmode = directmode
-        self._spi = None
-        self._SoundFilesDir = ''
-        self._SoundFilesList = []
-        self._sound_state = 0  # current state of sound-communication state-machine in 'direct'-mode
-        self._sound_data = []  # curent buffer for sound data (wav-file[44:])
-        self._sound_data_idx = 0
-        self._sound_current_rep = 0
-        self._sound_current_volume = 100
         if self._directmode:
             import serial
             self._ser_ms = serial.Serial(self._ser_port, 230000, timeout=1)
@@ -146,37 +138,6 @@ class ftTXT(object):
         self._debug = []
         self._exchange_data_lock.release()
 
-    def queryStatus(self):
-        if self._directmode:
-            # not sure how to detect version yet, just set standard value
-            self._m_devicename = 'TXT direct'
-            self._m_version = 0x4010500
-            self._m_firmware = 'firmware version not detected'
-            return self._m_devicename, self._m_version
-        m_id = 0xDC21219A
-        m_resp_id = 0xBAC9723E
-        buf = struct.pack('<I', m_id)
-        self._socket_lock.acquire()
-        res = self._sock.send(buf)
-        data = self._sock.recv(512)
-        self._socket_lock.release()
-        fstr = '<I16sI'
-        response_id = 0
-        if len(data) == struct.calcsize(fstr):
-            response_id, m_devicename, m_version = struct.unpack(fstr, data)
-        else:
-            m_devicename = ''
-            m_version = 0
-        if response_id != m_resp_id:
-            print('WARNING: ResponseID ', hex(response_id), 'of queryStatus command does not match')
-        self._m_devicename = m_devicename.decode('utf-8').strip('\x00')
-        self._m_version = m_version
-        v1 = int(hex(m_version)[2])
-        v2 = int(hex(m_version)[3:5])
-        v3 = int(hex(m_version)[5:7])
-        self._m_firmware = 'firmware version ' + str(v1) + '.' + str(v2) + '.' + str(v3)
-        return m_devicename, m_version
-
     def startOnline(self, update_interval=0.02):
         if self._directmode == True:
             if self._txt_stop_event.isSet():
@@ -192,35 +153,6 @@ class ftTXT(object):
                 # self._txt_keep_connection_thread.setDaemon(True)
                 # self._txt_keep_connection_thread.start()
             return None
-        if self._txt_stop_event.isSet():
-            self._txt_stop_event.clear()
-        else:
-            return
-        if self._txt_thread is None:
-            m_id = 0x163FF61D
-            m_resp_id = 0xCA689F75
-            buf = struct.pack('<I64s', m_id, b'')
-            self._socket_lock.acquire()
-            res = self._sock.send(buf)
-            data = self._sock.recv(512)
-            self._socket_lock.release()
-            fstr = '<I'
-            response_id = 0
-            if len(data) == struct.calcsize(fstr):
-                response_id, = struct.unpack(fstr, data)
-            if response_id != m_resp_id:
-                self.handle_error('WARNING: ResponseID %s of startOnline command does not match' % hex(response_id),
-                                  None)
-            else:
-                self._txt_thread = ftTXTexchange(txt=self, sleep_between_updates=update_interval,
-                                                 stop_event=self._txt_stop_event)
-                self._txt_thread.setDaemon(True)
-                self._txt_thread.start()
-                # keep_connection_thread is needed when using SyncDataBegin/End in interactive python mode
-                self._txt_keep_connection_stop_event = threading.Event()
-                self._txt_keep_connection_thread = ftTXTKeepConnection(self, 1.0, self._txt_keep_connection_stop_event)
-                self._txt_keep_connection_thread.setDaemon(True)
-                self._txt_keep_connection_thread.start()
         return None
 
     def stopOnline(self):
@@ -230,24 +162,6 @@ class ftTXT(object):
             if self._spi:
                 self._spi.close()
             return None
-        if not self.isOnline():
-            return
-        self._txt_stop_event.set()
-        self._txt_keep_connection_stop_event.set()
-        m_id = 0x9BE5082C
-        m_resp_id = 0xFBF600D2
-        buf = struct.pack('<I', m_id)
-        self._socket_lock.acquire()
-        res = self._sock.send(buf)
-        data = self._sock.recv(512)
-        self._socket_lock.release()
-        fstr = '<I'
-        response_id = 0
-        if len(data) == struct.calcsize(fstr):
-            response_id, = struct.unpack(fstr, data)
-        if response_id != m_resp_id:
-            self.handle_error('WARNING: ResponseID %s of stopOnline command does not match' % hex(response_id), None)
-        self._txt_thread = None
         return None
 
     def setConfig(self, M, I):
@@ -280,40 +194,6 @@ class ftTXT(object):
         ii = [(i[0], i[1]), (i[3], i[4]), (i[6], i[7]), (i[9], i[10]), (i[12], i[13]), (i[15], i[16]), (i[18], i[19]),
               (i[21], i[22])]
         return m, ii
-
-    def updateConfig(self):
-        if self._directmode:
-            # in direct mode i/o port configuration is performed automatically in exchangeData thread
-            return
-        if not self.isOnline():
-            self.handle_error("Controller must be online before updateConfig() is called", None)
-            return
-        m_id = 0x060EF27E
-        m_resp_id = 0x9689A68C
-        self._config_id += 1
-        fields = [m_id, self._config_id, self._m_extension_id]
-        fields.append(self._ftX1_pgm_state_req)
-        fields.append(self._ftX1_old_FtTransfer)
-        fields.append(self._ftX1_dummy)
-        fields += self._ftX1_motor
-        fields += self._ftX1_uni
-        fields += self._ftX1_cnt
-        fields += self._ftX1_motor_config
-        buf = struct.pack('<Ihh B B 2s BBBB BB2s BB2s BB2s BB2s BB2s BB2s BB2s BB2s B3s B3s B3s B3s 16h', *fields)
-        self._socket_lock.acquire()
-        res = self._sock.send(buf)
-        data = self._sock.recv(512)
-        self._socket_lock.release()
-        fstr = '<I'
-        response_id = 0
-        if len(data) == struct.calcsize(fstr):
-            response_id, = struct.unpack(fstr, data)
-        if response_id != m_resp_id:
-            self.handle_error('WARNING: ResponseID %s of updateConfig command does not match' % hex(response_id), None)
-            # Stop the data exchange thread and the keep connection thread if we were online
-            self._txt_stop_event.set()
-            self._txt_keep_connection_stop_event.set()
-        return None
 
     def incrMotorCmdId(self, idx):
         self._exchange_data_lock.acquire()
@@ -1039,15 +919,12 @@ class ftrobopy(ftTXT):
         else:
             ftTXT.__init__(self, host, port)
         self._txt_is_initialzed = True
-        self.queryStatus()
         for i in range(8):
             self.setPwm(i, 0)
         self.startOnline(update_interval)
-        self.updateConfig()
 
     def __del__(self):
         if self._txt_is_initialized:
-            self.stopCameraOnline()
             self.stopOnline()
             if self._sock:
                 self._sock.close()
@@ -1117,7 +994,6 @@ class ftrobopy(ftTXT):
         M, I = self.getConfig()
         M[output - 1] = ftTXT.C_MOTOR
         self.setConfig(M, I)
-        self.updateConfig()
         if self._directmode and wait:
             self.updateWait()
         return mot(self, output)
@@ -1140,7 +1016,6 @@ class ftrobopy(ftTXT):
         M, I = self.getConfig()
         M[int((num - 1) / 2)] = ftTXT.C_OUTPUT
         self.setConfig(M, I)
-        self.updateConfig()
         if self._directmode and wait:
             self.updateWait()
         return out(self, num, level)
@@ -1157,7 +1032,6 @@ class ftrobopy(ftTXT):
         M, I = self.getConfig()
         I[num - 1] = (ftTXT.C_SWITCH, ftTXT.C_DIGITAL)
         self.setConfig(M, I)
-        self.updateConfig()
         if self._directmode and wait:
             self.updateWait()
         return inp(self, num)
@@ -1186,7 +1060,6 @@ class ftrobopy(ftTXT):
         M, I = self.getConfig()
         I[num - 1] = (ftTXT.C_RESISTOR, ftTXT.C_ANALOG)
         self.setConfig(M, I)
-        self.updateConfig()
         if self._directmode and wait:
             self.updateWait()
         return inp(self, num)
@@ -1203,7 +1076,6 @@ class ftrobopy(ftTXT):
         M, I = self.getConfig()
         I[num - 1] = (ftTXT.C_ULTRASONIC, ftTXT.C_ANALOG)
         self.setConfig(M, I)
-        self.updateConfig()
         if self._directmode and wait:
             self.updateWait()
         return inp(self, num)
@@ -1220,7 +1092,6 @@ class ftrobopy(ftTXT):
         M, I = self.getConfig()
         I[num - 1] = (ftTXT.C_VOLTAGE, ftTXT.C_ANALOG)
         self.setConfig(M, I)
-        self.updateConfig()
         if self._directmode and wait:
             self.updateWait()
         return inp(self, num)
@@ -1247,7 +1118,6 @@ class ftrobopy(ftTXT):
         M, I = self.getConfig()
         I[num - 1] = (ftTXT.C_VOLTAGE, ftTXT.C_ANALOG)
         self.setConfig(M, I)
-        self.updateConfig()
         if self._directmode and wait:
             self.updateWait()
         return inp(self, num)
@@ -1273,7 +1143,6 @@ class ftrobopy(ftTXT):
         M, I = self.getConfig()
         I[num - 1] = (ftTXT.C_VOLTAGE, ftTXT.C_DIGITAL)
         self.setConfig(M, I)
-        self.updateConfig()
         if self._directmode and wait:
             self.updateWait()
         return inp(self, num)
@@ -1297,5 +1166,6 @@ while not Motor_rechts.finished():
     if d < 10:
         Motor_rechts.stop()
         Motor_links.stop()
-        if TXT.sound_finished():
-            TXT.play_sound(3, 1)
+        print("Ultraschall < 10")
+        exit(0)
+print("Distanz = 1000")
