@@ -95,39 +95,7 @@ class ftTXT(object):
 
     @tracing
     def __init__(self, host='127.0.0.1', port=65000, serport='/dev/ttyO2', on_error=default_error_handler,
-                 on_data=default_data_handler, directmode=False):
-        """
-          Initialisierung der ftTXT Klasse:
-
-          * Alle Ausgaenge werden per default auf 1 (=Motor) gesetzt
-          * Alle Eingaenge werden per default auf 1, 0 (=Taster, digital) gesetzt
-          * Alle Zaehler werden auf 0 gesetzt
-
-          :param host: Hostname oder IP-Nummer des TXT Moduls
-          :type host: string
-
-          - '127.0.0.1' im Downloadbetrieb
-          - '192.168.7.2' im USB Offline-Betrieb
-          - '192.168.8.2' im WLAN Offline-Betrieb
-          - '192.168.9.2' im Bluetooth Offline-Betreib
-
-          :param port: Portnummer (normalerweise 65000)
-          :type port: integer
-
-          :param serport: Serieller Port zur direkten Ansteuerung der Motorplatine des TXT
-          :type serport: string
-
-          :param on_error: Errorhandler fuer Fehler bei der Kommunikation mit dem Controller (optional)
-          :type port: function(str, Exception) -> bool
-
-
-          :return: Leer
-
-          Anwedungsbeispiel:
-
-          >>> import ftrobopy
-          >>> txt = ftrobopy.ftTXT('192.168.7.2', 65000)
-        """
+                 on_data=default_data_handler):
         self._m_devicename = b''
         self._m_version = 0
         self._host = host
@@ -249,146 +217,26 @@ class ftTXT(object):
 
     @tracing
     def queryStatus(self):
-        """
-           Abfrage des Geraetenamens und der Firmware Versionsnummer des TXT
-           Nach dem Umwandeln der Versionsnummer in einen Hexadezimalwert, kann
-           die Version direkt abgelesen werden.
-
-           :return: Geraetename (string), Versionsnummer (integer)
-
-           Anwendungsbeispiel:
-
-           >>> name, version = txt.queryStatus()
-        """
-
         # not sure how to detect version yet, just set standard value
         self._m_devicename = 'TXT direct'
         self._m_version = 0x4010500
         self._m_firmware = 'firmware version not detected'
         return self._m_devicename, self._m_version
 
+    @tracing
     def getDevicename(self):
-        """
-           Liefert den zuvor mit queryStatus() ausgelesenen Namen des TXT zurueck
-
-           :return: Geraetename (string)
-
-           Anwendungsbeispiel:
-
-           >>> print('Name des TXT: ', txt.getDevicename())
-        """
         return self._m_devicename
 
+    @tracing
     def getVersionNumber(self):
-        """
-           Liefert die zuvor mit queryStatus() ausgelesene Versionsnummer zurueck.
-           Um die Firmwareversion direkt ablesen zu koennen, muss diese Nummer noch in
-           einen Hexadezimalwert umgewandelt werden
-
-           :return: Versionsnummer (integer)
-
-           Anwendungsbeispiel:
-
-           >>> print(hex(txt.getVersionNumber()))
-        """
         return self._m_version
 
+    @tracing
     def getFirmwareVersion(self):
-        """
-           Liefert die zuvor mit queryStatus() ausgelesene Versionsnummer als
-           Zeichenkette (string) zurueck.
-
-           :return: Firmware Versionsnummer (str)
-
-           Anwendungsbeispiel:
-
-           >>> print(txt.getFirmwareVersion())
-        """
         return self._m_firmware
-
-    def startOnline(self, update_interval=0.02):
-        """
-           Startet den Onlinebetrieb des TXT und startet einen Python-Thread, der die Verbindung zum TXT aufrecht erhaelt.
-
-           :return: Leer
-
-           Anwendungsbeispiel:
-
-           >>> txt.startOnline()
-        """
-        if self._txt_stop_event.isSet():
-            self._txt_stop_event.clear()
-        if self._txt_thread is None:
-            self._txt_thread = ftTXTexchange(
-                txt=self, sleep_between_updates=update_interval, stop_event=self._txt_stop_event)
-            self._txt_thread.setDaemon(True)
-            self._txt_thread.start()
-            # keep_connection_thread is needed when using SyncDataBegin/End in interactive python mode
-            # self._txt_keep_connection_stop_event = threading.Event()
-            # self._txt_keep_connection_thread = ftTXTKeepConnection(self, 1.0, self._txt_keep_connection_stop_event)
-            # self._txt_keep_connection_thread.setDaemon(True)
-            # self._txt_keep_connection_thread.start()
-        return None
-
-
-    def stopOnline(self):
-        """
-           Beendet den Onlinebetrieb des TXT und beendet den Python-Thread der fuer den Datenaustausch mit dem TXT verantwortlich war.
-
-           :return: Leer
-
-           Anwendungsbeispiel:
-
-           >>> txt.stopOnline()
-        """
-        self._txt_stop_event.set()
-        self._txt_thread = None
-        if self._spi:
-            self._spi.close()
-        return None
-
 
     @tracing
     def setConfig(self, M, I):
-        """
-           Einstellung der Konfiguration der Ein- und Ausgaenge des TXT.
-           Diese Funktion setzt nur die entsprechenden Werte in der ftTXT-Klasse.
-           Zur Uebermittlung der Werte an den TXT wird die updateConfig-Methode verwendet.
-
-           :param M: Konfiguration der 4 Motorausgaenge (0=einfacher Ausgang, 1=Motorausgang)
-           :type M: int[4]
-
-           - Wert=0: Nutzung der beiden Ausgaenge als einfache Outputs
-           - Wert=1: Nutzung der beiden Ausgaenge als Motorausgang (links-rechts-Lauf)
-
-           :param I: Konfiguration der 8 Eingaenge
-           :type I: int[8][2]
-
-           :return: Leer
-
-           Anwendungsbeispiel:
-
-           - Konfiguration der Ausgaenge M1 und M2 als Motorausgaenge
-           - Konfiguration der Ausgaenge O5/O6 und O7/O8 als einfache Ausgaenge
-
-
-           - Konfiguration der Eingaenge I1, I2, I6, I7, I8 als Taster
-           - Konfiguration des Eingangs I3 als Ultraschall Entfernungsmesser
-           - Konfiguration des Eingangs I4 als analoger Spannungsmesser
-           - Konfiguration des Eingangs I5 als analoger Widerstandsmesser
-
-           >>> M = [txt.C_MOTOR, txt.C_MOTOR, txt.C_OUTPUT, txt.C_OUTPUT]
-           >>> I = [(txt.C_SWITCH,     txt.C_DIGITAL),
-                    (txt.C_SWITCH,     txt.C_DIGITAL),
-                    (txt.C_ULTRASONIC, txt.C_ANALOG),
-                    (txt.C_VOLTAGE,    txt.C_ANALOG),
-                    (txt.C_RESISTOR,   txt.C_ANALOG),
-                    (txt.C_SWITCH,     txt.C_DIGITAL),
-                    (txt.C_SWITCH,     txt.C_DIGITAL),
-                    (txt.C_SWITCH,     txt.C_DIGITAL)]
-           >>> txt.setConfig(M, I)
-           >>> txt.updateConfig()
-        """
         self._config_id += 1
         # Configuration of motors
         # 0=single output O1/O2
@@ -412,580 +260,195 @@ class ftTXT(object):
                           I[7][0], I[7][1], b'\x00\x00']
         return None
 
+    @tracing
     def getConfig(self):
-        """
-           Abfrage der aktuellen Konfiguration des TXT
-
-           :return: M[4], I[8][2]
-           :rtype: M:int[4], I:int[8][2]
-
-           Anwendungsbeispiel: Aenderung des Eingangs I2 auf analoge Ultraschall Distanzmessung
-
-           - Hinweis: Feldelemente werden in Python typischerweise durch die Indizes 0 bis N-1 angesprochen
-           - Der Eingang I2 des TXT wird in diesem Beispiel ueber das Feldelement I[1] angesprochen
-
-           >>> M, I = txt.getConfig()
-           >>> I[1] = (txt.C_ULTRASONIC, txt.C_ANALOG)
-           >>> txt.setConfig(M, I)
-           >>> txt.updateConfig()
-        """
         m = self._ftX1_motor
         i = self._ftX1_uni
         ii = [(i[0], i[1]), (i[3], i[4]), (i[6], i[7]), (i[9], i[10]),
               (i[12], i[13]), (i[15], i[16]), (i[18], i[19]), (i[21], i[22])]
         return m, ii
 
+    @tracing
     def updateConfig(self):
-        """
-           Uebertragung der Konfigurationsdaten fuer die Ein- und Ausgaenge zum TXT
-
-           :return: Leer
-
-           Anwendungsbeispiel:
-
-           >>> txt.setConfig(M, I)
-           >>> txt.updateConfig()
-        """
         return None
 
+    @tracing
     def incrMotorCmdId(self, idx):
-        """
-          Erhoehung der sog. Motor Command ID um 1.
-
-          Diese Methode muss immer dann aufgerufen werden, wenn die Distanzeinstellung eines Motors (gemessen ueber die 4 schnellen Counter-Eingaenge)
-          geaendert wurde oder wenn ein Motor mit einem anderen Motor synchronisiert werden soll. Falls nur die Motorgeschwindigkeit veraendert wurde,
-          ist der Aufruf der incrMotorCmdId()-Methode nicht notwendig.
-
-          :param idx: Nummer des Motorausgangs
-          :type idx: integer
-
-          Achtung:
-
-          * Die Zaehlung erfolgt hier von 0 bis 3, idx=0 entspricht dem Motorausgang M1 und idx=3 entspricht dem Motorausgang M4
-
-          Anwendungsbeispiel:
-
-          Der Motor, der am TXT-Anschluss M2 angeschlossen ist, soll eine Distanz von 200 (Counterzaehlungen) zuruecklegen.
-
-          >>> txt.setMotorDistance(1, 200)
-          >>> txt.incrMotorCmdId(1)
-        """
         self._exchange_data_lock.acquire()
         self._motor_cmd_id[idx] += 1
         self._motor_cmd_id[idx] &= 0x07
         self._exchange_data_lock.release()
         return None
 
+    @tracing
     def getMotorCmdId(self, idx=None):
-        """
-          Liefert die letzte Motor Command ID eines Motorausgangs (oder aller Motorausgaenge als array) zurueck.
-
-          :param idx: Nummer des Motorausgangs. Falls dieser Parameter nicht angeben wird, wird die Motor Command ID aller Motorausgaenge als Array[4] zurueckgeliefert.
-          :type idx: integer
-
-          :return: Die Motor Command ID eines oder aller Motorausgaenge
-          :rtype: integer oder integer[4] array
-
-          Anwendungsbeispiel:
-
-          >>> letzte_cmd_id = txt.getMotorCmdId(4)
-        """
         if idx != None:
             ret = self._motor_cmd_id[idx]
         else:
             ret = self._motor_cmd_id
         return ret
 
+    @tracing
     def incrCounterCmdId(self, idx):
-        """
-          Erhoehung der Counter Command ID um eins.
-          Falls die Counter Command ID eines Counters um eins erhoeht wird, wird der entsprechende Counter zurueck auf 0 gesetzt.
-
-          :param idx: Nummer des schnellen Countereingangs, dessen Command ID erhoeht werden soll. (Hinweis: die Zaehlung erfolgt hier von 0 bis 3 fuer die Counter C1 bis C4)
-          :type idx: integer
-
-          :return: Leer
-
-          Anwendungsbeispiel:
-
-          Erhoehung der Counter Command ID des Counters C4 um eins.
-
-          >>> txt.incrCounterCmdId(3)
-        """
         self._exchange_data_lock.acquire()
         self._counter[idx] += 1
         self._counter[idx] &= 0x07
         self._exchange_data_lock.release()
         return None
 
+    @tracing
     def getCounterCmdId(self, idx=None):
-        """
-          Liefert die letzte Counter Command ID eines (schnellen) Counters zurueck
-
-          :param idx: Nummer des Counters. (Hinweis: die Zaehlung erfolgt hier von 0 bis 3 fuer die Counter C1 bis C4)
-
-          Anwendungsbeispiel:
-
-          Counter Command ID des schnellen Counters C3 in Variable num einlesen.
-
-          >>> num = txt.getCounterCmdId(2)
-        """
         if idx != None:
             ret = self._counter[idx]
         else:
             ret = self._counter
         return ret
 
+    @tracing
     def setPwm(self, idx, value):
-        """
-          Einstellen des Ausgangswertes fuer einen Motor- oder Output-Ausgang. Typischerweise wird diese Funktion nicht direkt aufgerufen,
-          sondern von abgeleiteten Klassen zum setzen der Ausgangswerte verwendet.
-          Ausnahme: mit Hilfe dieser Funktionen koennen Ausgaenge schnell auf 0 gesetzt werden um z.B. einen Notaus zu realisieren (siehe auch stopAll)
-
-          :param idx: Nummer des Ausgangs. (Hinweis: die Zaehlung erfolgt hier von 0 bis 7 fuer die Ausgaenge O1-O8)
-          :type idx: integer (0-7)
-
-          :param value: Wert, auf den der Ausgang gesetzt werden soll (0:Ausgang ausgeschaltet, 512: Ausgang auf maximum)
-          :type value: integer (0-512)
-
-          :return: Leer
-
-          Anwendungsbeispiel:
-
-          * Motor am Anschluss M1 soll mit voller Geschwindigkeit Rueckwaerts laufen.
-          * Lampe am Anschluss O3 soll mit halber Leuchtkraft leuchten.
-
-          >>> txt.setPwm(0,0)
-          >>> txt.setPwm(1,512)
-          >>> txt.setPwm(2,256)
-        """
         self._exchange_data_lock.acquire()
         self._pwm[idx] = value
         self._exchange_data_lock.release()
         return None
 
+    @tracing
     def stopAll(self):
-        """
-        Setzt alle Ausgaenge auf 0 und stoppt damit alle Motoren und schaltet alle Lampen aus.
-
-        :return:
-        """
         for i in range(8):
             self.setPwm(i, 0)
         return
 
+    @tracing
     def getPwm(self, idx=None):
-        """
-          Liefert die zuletzt eingestellten Werte der Ausgaenge O1-O8 (als array[8]) oder den Wert eines Ausgangs.
-
-          :param idx:
-          :type idx: integer oder None, bzw. leer
-
-          - Wenn kein idx-Parameter angegeben wurde, werden alle Pwm-Einstellungen als array[8] zurueckgeliefert.
-          - Ansonsten wird nur der Pwm-Wert des mit idx spezifizierten Ausgangs zurueckgeliefert.
-
-          Hinweis: der idx-Parameter wird angeben von 0 bis 7 fuer die Ausgaenge O1-O8
-
-          :return: der durch (idx+1) spezifizierte Ausgang O1 bis O8 oder das gesamte Pwm-Array
-          :rtype: integer oder integer array[8]
-
-          Anwendungsbeispiel:
-
-          Liefert die
-
-          >>> M1_a = txt.getPwm(0)
-          >>> M1_b = txt.getPwm(1)
-          >>> if M1_a > 0 and M1_b == 0:
-                print("Geschwindigkeit Motor M1: ", M1_a, " (vorwaerts).")
-              else:
-                if M1_a == and M1_b > 0:
-                  print("Geschwindigkeit Motor M1: ", M1_b, " (rueckwaerts).")
-        """
         if idx != None:
             ret = self._pwm[idx]
         else:
             ret = self._pwm
         return ret
 
+    @tracing
     def setMotorSyncMaster(self, idx, value):
-        """
-          Hiermit koennen zwei Motoren miteinander synchronisiert werden, z.B. fuer perfekten Geradeauslauf.
-
-          :param idx: Der Motorausgang, der synchronisiert werden soll
-          :type idx: integer
-
-          :param value: Die Numer des Motorausgangs, mit dem synchronisiert werden soll.
-          :type value: integer
-
-          :return: Leer
-
-          Hinweis:
-
-          - der idx-Parameter wird angeben von 0 bis 3 fuer die Motor-Ausgaenge M1 bis M4.
-          - der value-PArameter wird angeben von 1 bis 4 fuer die Motor-Ausgaenge M1 bis M4.
-
-          Anwendungsbeispiel:
-
-          Die Motorausgaenge M1 und M2 werden synchronisiert.
-          Um die Synchronisations-Befehle abzuschliessen, muss ausserdem die MotorCmdId der Motoren erhoeht werden.
-
-          >>> txt.setMotorSyncMaster(0, 2)
-          >>> txt.setMotorSyncMaster(1, 1)
-          >>> txt.incrMotorCmdId(0)
-          >>> txt.incrMotorCmdId(1)
-        """
         self._exchange_data_lock.acquire()
         self._motor_sync[idx] = value
         self._exchange_data_lock.release()
         return None
 
+    @tracing
     def getMotorSyncMaster(self, idx=None):
-        """
-          Liefert die zuletzt eingestellte Konfiguration der Motorsynchronisation fuer einen oder alle Motoren zurueck.
-
-          :param idx: Die Nummer des Motors, dessen Synchronisation geliefert werden soll oder None oder <leer> fuer alle Ausgaenge.
-          :type idx: integer
-
-          :return: Leer
-
-          Hinweis:
-
-          - der idx-Parameter wird angeben von 0 bis 3 fuer die Motor-Ausgaenge M1 bis M4.
-          - oder None oder <leer> fuer alle Motor-Ausgaenge.
-
-          Anwendungsbeispiel:
-
-          >>> xm = txt.getMotorSyncMaster()
-          >>> print("Aktuelle Konfiguration aller Motorsynchronisationen: ", xm)
-        """
         if idx != None:
             ret = self._motor_sync[idx]
         else:
             ret = self._motor_sync
         return ret
 
+    @tracing
     def setMotorDistance(self, idx, value):
-        """
-          Hiermit kann die Distanz (als Anzahl von schnellen Counter-Zaehlungen) fuer einen Motor eingestellt werden.
-
-          :param idx: Nummer des Motorausgangs
-          :type idx: integer
-
-          :return: Leer
-
-          Hinweis:
-
-          - der idx-Parameter wird angeben von 0 bis 3 fuer die Motor-Ausgaenge M1 bis M4.
-
-          Anwendungsbeispiel:
-
-          Der Motor an Ausgang M3 soll 100 Counter-Zaehlungen lang drehen.
-          Um den Distanz-Befehl abzuschliessen, muss ausserdem die MotorCmdId des Motors erhoeht werden.
-
-          >>> txt.setMotorDistance(2, 100)
-          >>> txt.incrMotorCmdId(2)
-        """
         self._exchange_data_lock.acquire()
         self._motor_dist[idx] = value
         self._exchange_data_lock.release()
         return None
 
+    @tracing
     def getMotorDistance(self, idx=None):
-        """
-          Liefert die zuletzt eingestellte Motordistanz fuer einen oder alle Motorausgaenge zurueck.
-
-          :param idx: Nummer des Motorausgangs
-          :type idx: integer
-
-          :return: Letzte eingestellte Distanz eines Motors (idx=0-3) oder alle zuletzt eingestellten Distanzen (idx=None oder kein idx-Parameter angegeben)
-
-          Hinweis:
-
-          - der idx-Parameter wird angeben von 0 bis 3 fuer die Motor-Ausgaenge M1 bis M4.
-
-          Anwendungsbeispiel:
-
-          >>> md = txt.getMotorDistance(1)
-          >>> print("Mit setMotorDistance() eingestellte Distanz fuer M2: ", md)
-        """
         if idx != None:
             ret = self._motor_dist[idx]
         else:
             ret = self._motor_dist
         return ret
 
+    @tracing
     def getCurrentInput(self, idx=None):
-        """
-           Liefert den aktuellen vom TXT zurueckgelieferten Wert eines Eingangs oder aller Eingaenge als Array
-
-           :param idx: Nummer des Eingangs
-           :type idx: integer
-
-           :return: Aktueller Wert eines Eingangs (idx=0-7) oder alle aktuellen Eingangswerte des TXT-Controllers als Array[8] (idx=None oder kein idx angegeben)
-
-           Hinweis:
-
-           - der idx-Parameter wird angeben von 0 bis 7 fuer die Eingaenge I1 bis I8.
-
-           Anwendungsbeispiel:
-
-           >>> print("Der aktuelle Wert des Eingangs I4 ist: ", txt.getCurrentInput(3))
-        """
         if idx != None:
             ret = self._current_input[idx]
         else:
             ret = self._current_input
         return ret
 
+    @tracing
     def getCurrentCounterInput(self, idx=None):
-        """
-          Zeigt an, ob ein Counter oder alle Counter (als Array[4]) sich seit der letzten Abfrage veraendert haben.
-
-          :param idx: Nummer des Counters
-          :type idx: integer
-
-          :return: Aktueller Status-Wert eines Counters (idx=0-3) oder aller schnellen Counter des TXT-Controllers als Array[4] (idx=None oder kein idx angegeben)
-
-          Hinweis:
-
-          - der idx-Parameter wird angeben von 0 bis 3 fuer die Counter C1 bis C4.
-
-          Anwendungsbeispiel:
-
-          >>> c = txt.getCurrentCounterInput(0)
-          >>> if c==0:
-          >>>   print("Counter C1 hat sich seit der letzten Abfrage nicht veraendert")
-          >>> else:
-          >>>   print("Counter C1 hat sich seit der letzten Abfrage veraendert")
-        """
         if idx != None:
             ret = self._current_counter[idx]
         else:
             ret = self._current_counter
         return ret
 
+    @tracing
     def getCurrentCounterValue(self, idx=None):
-        """
-          Liefert den aktuellen Wert eines oder aller schnellen Counter Eingaenge zurueck.
-          Damit kann z.B. nachgeschaut werden, wie weit ein Motor schon gefahren ist.
-
-          :param idx: Nummer des Counters
-          :type idx: integer
-
-          :return: Aktueller Wert eines Counters (idx=0-3) oder aller schnellen Counter des TXT-Controllers als Array[4] (idx=None oder kein idx angegeben)
-
-          Hinweis:
-
-          - der idx-Parameter wird angegeben von 0 bis 3 fuer die Counter C1 bis C4.
-
-          Anwendungsbeispiel:
-
-          >>> print("Aktueller Wert von C1: ", txt.getCurrentCounterValue(0)
-        """
         if idx != None:
             ret = self._current_counter_value[idx]
         else:
             ret = self._current_counter_value
         return ret
 
+    @tracing
     def getCurrentCounterCmdId(self, idx=None):
-        """
-          Liefert die aktuelle Counter Command ID eines oder aller Counter zurueck.
-
-          :param idx: Nummer des Counters
-          :type idx: integer
-
-          :return: Aktuelle Commmand ID eines Counters (idx=0-3) oder aller Counter des TXT-Controllers als Array[4] (idx=None oder kein idx angegeben)
-
-          Hinweis:
-
-          - der idx-Parameter wird angeben von 0 bis 3 fuer die Counter C1 bis C4.
-
-          Anwendungsbeispiel:
-
-          >>> cid = txt.getCurrentCounterCmdId(3)
-          >>> print("Aktuelle Counter Command ID von C4: ", cid)
-        """
         if idx != None:
             ret = self._current_counter_cmd_id[idx]
         else:
             ret = self._current_counter_cmd_id
         return ret
 
+    @tracing
     def getCurrentMotorCmdId(self, idx=None):
-        """
-          Liefert die aktuelle Motor Command ID eines oder aller Motoren zurueck.
-
-          :param idx: Nummer des Motors
-          :type idx: integer
-
-          :return: Aktuelle Commmand ID eines Motors (idx=0-3) oder aller Motoren des TXT-Controllers als Array[4] (idx=None oder kein idx angegeben)
-
-          Hinweis:
-
-          - der idx-Parameter wird angeben von 0 bis 3 fuer die Motoren M1 bis M4.
-
-          Anwendungsbeispiel:
-
-          >>> print("Aktuelle Motor Command ID von M4: ", txt.getCurrentMotorCmdId(3))
-        """
         if idx != None:
             ret = self._current_motor_cmd_id[idx]
         else:
             ret = self._current_motor_cmd_id
         return ret
 
+    @tracing
     def getCurrentSoundCmdId(self):
-        """
-          Liefert die aktuelle Sound Command ID zurueck.
-
-          :return: Die aktuelle Sound Command ID
-          :rtype: integer
-
-          Anwendungsbeispiel:
-
-          >>> print("Die aktuelle Sound Command ID ist: ", txt.getCurrentSoundCmdId())
-        """
         ret = self._current_sound_cmd_id
         return ret
 
+    @tracing
     def getCurrentIr(self):
-        """
-        Liefert eine Liste mit den aktuellen Werten der IR-Fernbedienung zurueck (keine direct-Mode Unterstuetzung).
-        Diese Funktion ist obsolet und sollte nicht mehr verwendet werden.
-        """
         if self._directmode:
             return
         ret = self._current_ir
         return ret
 
+    @tracing
     def getHost(self):
-        """
-        Liefert die aktuelle Netzwerk-Einstellung (typischerweise die IP-Adresse des TXT) zurueck.
-        :return: Host-Adresse
-        :rtype: string
-        """
         return self._host
 
+    @tracing
     def getPort(self):
-        """
-        Liefert die den aktuellen Netzwerkport zum TXT zurueck (normalerweise 65000).
-        :return: Netzwerkport
-        :rtype: int
-        """
         return self._port
 
+    @tracing
     def getPower(self):
-        """
-        Liefert die aktuelle Spannung der angeschlossenen Stromversorgung des TXT in mV (Netzteil- oder Batterie-Spannung).
-
-        Diese Funktion steht nur im 'direct'-Modus zur Verfuegung.
-
-        Anwendungsbeispiel:
-
-        >>> Spannung = txt.getPower()
-        >>> if Spannung < 7900:
-        >>>   print("Warnung: die Batteriespannung des TXT ist schwach. Bitte die Batterie umgehend austauschen !")
-
-        """
-
         return self._current_power
 
-
+    @tracing
     def getTemperature(self):
-        """
-        Liefert die aktuelle Temperatur der CPU des TXT (Einheit: ?) zurueck.
-
-        Diese Funktion steht nur im 'direct'-Modus zur Verfuegung.
-
-        Anwendungsbeispiel:
-
-        >>> Temperatur = txt.getTemperature()
-        >>> print("Die Temperatur im innern des TXT betraegt: ", Temperatur, " (Einheit unbekannt)")
-
-        """
         return self._current_temperature
 
-
+    @tracing
     def getReferencePower(self):
-        """
-        Liefert die aktuelle Referenz-Spannung in mV.
-
-        Diese Funktion steht nur im 'direct'-Modus zur Verfuegung.
-
-        Anwendungsbeispiel:
-
-        >>> ReferenzSpannung = txt.getReferencePower()
-
-        """
-
         return self._current_reference_power
 
-
+    @tracing
     def getExtensionPower(self):
-        """
-        Liefert die aktuelle Spannung in mV, die am Extension Bus anliegt.
-
-        Diese Funktion steht nur im 'direct'-Modus zur Verfuegung.
-
-        Anwendungsbeispiel:
-
-        >>> ExtensionSpannung = txt.getExtensionPower()
-
-        """
         return self._current_extension_power
 
-
+    @tracing
     def SyncDataBegin(self):
-        """
-          Die Funktionen SyncDataBegin() und SyncDataEnd()  werden verwendet um eine ganze Gruppe von Befehlen gleichzeitig ausfuehren zu koennen.
-
-          Anwendungsbeispiel:
-
-          Die drei Ausgaenge motor1, motor2 und lampe1 werden gleichzeitig aktiviert.
-
-          >>> SyncDataBegin()
-          >>> motor1.setSpeed(512)
-          >>> motor2.setSpeed(512)
-          >>> lampe1.setLevel(512)
-          >>> SyncDataEnd()
-        """
         self._exchange_data_lock.acquire()
 
+    @tracing
     def SyncDataEnd(self):
-        """
-          Die Funktionen SyncDataBegin() und SyncDataEnd()  werden verwendet um eine ganze Gruppe von Befehlen gleichzeitig ausfuehren zu koennen.
-
-          Anwendungsbeispiel siehe SyncDataBegin()
-        """
         self._exchange_data_lock.release()
 
+    @tracing
     def updateWait(self, minimum_time=0.001):
-        """
-          Wartet so lange, bis der naechste Datenaustausch-Zyklus mit dem TXT erfolgreich abgeschlossen wurde.
-
-          Anwendungsbeispiel:
-
-          >>> motor1.setSpeed(512)
-          >>> motor1.setDistance(100)
-          >>> while not motor1.finished():
-          >>>   txt.updateWait()
-
-          Ein einfaches "pass" anstelle des "updateWait()" wuerde zu einer deutlich hoeheren CPU-Last fuehren.
-
-        """
         self._exchange_data_lock.acquire()
         self._update_status = 0
         self._exchange_data_lock.release()
         while self._update_status == 0:
             time.sleep(minimum_time)
 
-
+@tracing
 class ftTXTKeepConnection(threading.Thread):
-    """
-      Thread zur Aufrechterhaltung der Verbindung zwischen dem TXT und einem Computer
-      Typischerweise wird diese Thread-Klasse vom Endanwender nicht direkt verwendet.
-      """
 
     def __init__(self, txt, maxtime, stop_event):
         threading.Thread.__init__(self)
@@ -1026,15 +489,8 @@ class ftTXTKeepConnection(threading.Thread):
                 return
         return
 
-
+@tracing
 class ftTXTexchange(threading.Thread):
-    """
-    Thread zum kontinuierlichen Datenaustausch zwischen TXT und einem Computer, bzw. zwischen
-    der TXT Linux Platine und der TXT Motorplatine (im Direktmodus).
-    sleep_between_updates ist die Zeit, die zwischen zwei Datenaustauschprozessen gewartet wird.
-    Der TXT kann im schnellsten Falle alle 10 ms Daten austauschen.
-    Typischerweise wird diese Thread-Klasse vom Endanwender nicht direkt verwendet.
-    """
 
     def __init__(self, txt, sleep_between_updates, stop_event):
         threading.Thread.__init__(self)
@@ -1378,67 +834,10 @@ class ftTXTexchange(threading.Thread):
             self._txt._exchange_data_lock.release()
 
 
-
+@tracing
 class ftrobopy(ftTXT):
-    """
-      Erweiterung der Klasse ftrobopy.ftTXT. In dieser Klasse werden verschiedene fischertechnik Elemente
-      auf einer hoeheren Abstraktionsstufe (aehnlich den Programmelementen aus der ROBOPro Software) fuer den End-User zur Verfuegung gestellt.
-      Derzeit sind die folgenden Programmelemente implementiert:
-
-      * **motor**, zur Ansteuerung der Motorausgaenge M1-M4
-      * **output**, zur Ansteuerung der universellen Ausgaenge O1-O8
-      * **input**, zum Einlesen von Werten der Eingaenge I1-I8
-      * **resistor**, zum Messen eines Ohm'schen Widerstaenden
-      * **ultrasonic**, zur Bestimmung von Distanzen mit Hilfe des Ultraschall Moduls
-      * **voltage**, zum Messen einer Spannung
-      * **colorsensor**, zur Abfrage des fischertechnik Farbsensors
-      * **trailfollower**, zur Abfrage des fischertechnik Spursensors
-      * **joystick**, zur Abfrage eines Joysticks einer fischertechnik IR-Fernbedienung
-      * **joybutton**, zur Abfrage eines Buttons einer fischertechnik IR-Fernbedienung
-      * **joydipswitch**, zur Abfrage der DIP-Schalter-Einstellung einer IR-Fernbedienung
-
-      Ausserdem werden die folgenden Sound-Routinen zur Verfuegung gestellt:
-
-      * **play_sound**
-      * **stop_sound**
-      * **sound_finished**
-
-    """
 
     def __init__(self, host='127.0.0.1', port=65000, update_interval=0.01, special_connection='127.0.0.1'):
-        """
-          Initialisierung der ftrobopy Klasse:
-
-          * Aufbau der Socket-Verbindung zum TXT Controller mit Hilfe der Basisklasse ftTXT und Abfrage des Geraetenamens und der Firmwareversionsnummer
-          * Initialisierung aller Datenfelder der ftTXT Klasse mit Defaultwerten und Setzen aller Ausgaenge des TXT auf 0
-          * Starten eines Python-Hintergrundthreads der die Kommunikation mit dem TXT aufrechterhaelt
-
-          :param host: Hostname oder IP-Nummer des TXT Moduls
-          :type host: string
-
-          - 'auto' automatisch den passenden Modus finden.
-          - '127.0.0.1' oder 'localhost' automatisch den direct- oder den socket-Modus verwenden, abhaengig davon, ob der Prozess TxtControl Main aktiv ist oder nicht.
-          - '192.168.7.2' im USB Offline-Betrieb
-          - '192.168.8.2' im WLAN Offline-Betrieb
-          - '192.168.9.2' im Bluetooth Offline-Betreib
-          - 'direct' im Seriellen Online-Betrieb mit direkter Ansteuerung der Motor-Platine des TXT
-
-          :param port: Portnummer (normalerweise 65000)
-          :type port: integer
-
-          :param update_interval: Zeit (in Sekunden) zwischen zwei Aufrufen des Datenaustausch-Prozesses mit dem TXT
-          :type update_intervall: float
-
-          :param special_connection: IP-Adresse des TXT, falls dieser ueber einen Router im WLAN-Netz angesprochen wird (z.B. '10.0.2.7')
-          :type special_connection: string
-
-          :return: Leer
-
-          Anwedungsbeispiel:
-
-          >>> import ftrobopy
-          >>> ftrob = ftrobopy.ftrobopy('auto')
-        """
 
         def probe_socket(host, p=65000, timeout=0.5):
             s = socket.socket()
@@ -1539,107 +938,6 @@ class ftrobopy(ftTXT):
                 self._ser_ms.close()
 
     def motor(self, output, wait=True):
-        """
-          Diese Funktion erzeugt ein Motor-Objekt, das zur Ansteuerung eines Motors verwendet wird,
-          der an einem der Motorausgaenge M1-M4 des TXT angeschlossen ist. Falls auch die schnellen
-          Zaehler C1-C4 angeschlossen sind (z.b. durch die Verwendung von Encodermotoren oder Zaehlraedern)
-          koennen auch Achsumdrehungen genau gemessen werden und damit zurueckgelegte Distanzen bestimmt werden.
-          Ausserdem koennen jeweils zwei Motorausgaenge miteinander synchronisiert werden, um z.b. perfekten
-          Geradeauslauf bei Robotermodellen zu erreichen.
-
-          Anwendungsbeispiel:
-
-          >>> Motor1 = ftrob.motor(1)
-
-          Das so erzeugte Motor-Objekt hat folgende Funktionen:
-
-          * **setSpeed(speed)**
-          * **setDistance(distance, syncto=None)**
-          * **finished()**
-          * **getCurrentDistance()**
-          * **stop()**
-
-          Die Funktionen im Detail:
-
-          **setSpeed** (speed)
-
-          Einstellung der Motorgeschwindigkeit
-
-          :param speed:
-          :type speed: integer
-
-          :return: Leer
-
-          Gibt an, mit welcher Geschwindigkeit der Motor laufen soll:
-
-          - der Wertebereich der Geschwindigkeit liegt zwischen 0 (Motor anhalten) und 512 (maximale Geschwindigkeit)
-          - Falls die Geschwindigkeit negativ ist, laeuft der Motor Rueckwaerts
-
-          Hinweis: Der eingegebene Wert fuer die Geschwindigkeit haengt nicht linear mit der tatsaechlichen
-                   Drehgeschwindig des Motors zusammen, d.h. die Geschwindigkeit 400 ist nicht doppelt
-                   so gross, wie die Geschwindigkeit 200.  Bei Hoeheren Werten von speed kann dadurch die
-                   Geschwindigkeit in feineren Stufen reguliert werden.
-
-          Anwendungsbeispiel:
-
-          >>> Motor1.setSpeed(512)
-
-          Laesst den Motor mit maximaler Umdrehungsgeschwindigkeit laufen.
-
-          **setDistance** (distance, syncto=None)
-
-          Einstellung der Motordistanz, die ueber die schnellen Counter gemessen wird, die dafuer natuerlich angeschlossen
-          sein muessen.
-
-          :param distance: Gibt an, um wieviele Counter-Zaehlungen sich der Motor drehen soll (der Encodermotor gibt 72 Impulse pro Achsumdrehung)
-          :type distance: integer
-
-          :param syncto: Hiermit koennen zwei Motoren synchronisiert werden um z.B. perfekten Geradeauslauf
-                         zu ermoeglichen. Als Parameter wird hier das zu synchronisierende Motorobjekt uebergeben.
-          :type syncto: ftrobopy.motor Objekt
-
-          :return: Leer
-
-          Anwendungsbeispiel:
-
-          Der Motor am Anschluss M1 wird mit dem Motor am Anschluss M2 synchronisiert. Die Motoren M1 und M2 laufen
-          so lange, bis beide Motoren die eingestellte Distanz (Achsumdrehungen / 72) erreicht haben. Ist einer oder beide Motoren
-          nicht mit den schnellen Zaehlereingaengen verbunden, laufen die Motoren bis zur Beendigung des Python-Programmes !
-
-          >>> Motor_links=ftrob.motor(1)
-          >>> Motor_rechts=ftrob.motor(2)
-          >>> Motor_links.setDistance(100, syncto=Motor_rechts)
-          >>> Motor_rechts.setDistance(100, syncto=Motor_links)
-
-          **finished** ()
-
-          Abfrage, ob die eingestellte Distanz bereits erreicht wurde.
-
-          :return: False: Motor laeuft noch, True: Distanz erreicht
-          :rtype: boolean
-
-          Anwendungsbeispiel:
-
-          >>> while not Motor1.finished():
-                print("Motor laeuft noch")
-
-          **getCurrentDistance** ()
-
-          Abfrage der Distanz, die der Motor seit dem letzten setDistance-Befehl zurueckgelegt hat.
-
-          :return: Aktueller Wert des Motor Counters
-          :rtype: integer
-
-          **stop** ()
-
-          Anhalten des Motors durch setzen der Geschwindigkeit auf 0.
-
-          :return: Leer
-
-          Anwendungsbeispiel:
-
-          >>> Motor1.stop()
-        """
 
         class mot(object):
             def __init__(self, outer, output):
@@ -1709,30 +1007,6 @@ class ftrobopy(ftTXT):
         return mot(self, output)
 
     def output(self, num, level=0, wait=True):
-        """
-          Diese Funktion erzeugt ein allgemeines Output-Objekt, das zur Ansteuerung von Elementen verwendet
-          wird, die an den Ausgaengen O1-O8 angeschlossen sind.
-
-          Anwendungsbeispiel:
-
-          Am Ausgang O7 ist eine Lampe oder eine LED angeschlossen:
-
-          >>> Lampe = ftrob.output(7)
-
-          Das so erzeugte allg. Output-Objekt hat folgende Methoden:
-
-          **setLevel** (level)
-
-          :param level: Ausgangsleistung, die am Output anliegen soll (genauer fuer die Experten: die Gesamtlaenge des Arbeitsintervalls eines PWM-Taktes in Einheiten von 1/512, d.h. mit level=512 liegt das PWM-Signal waehrend des gesamten Taktes auf high).
-          :type level: integer, 1 - 512
-
-          Mit dieser Methode kann die Ausgangsleistung eingestellt werden, um z.B. die Helligkeit
-          einer Lampe zu regeln.
-
-          Anwendungsbeispiel:
-
-          >>> Lampe.setLevel(512)
-        """
 
         class out(object):
             def __init__(self, outer, num, level):
@@ -1755,30 +1029,6 @@ class ftrobopy(ftTXT):
         return out(self, num, level)
 
     def input(self, num, wait=True):
-        """
-          Diese Funktion erzeugt ein digitales (Ein/Aus) Input-Objekt, an einem der Eingaenge I1-I8.  Dies kann z.B. ein Taster, ein Photo-Transistor oder auch ein Reed-Kontakt sein.
-
-          Anwendungsbeispiel:
-
-          >>> Taster = ftrob.input(5)
-
-          Das so erzeugte Taster-Input-Objekt hat folgende Methoden:
-
-          **state** ()
-
-          Mit dieser Methode wird der Status des digitalen Eingangs abgefragt.
-
-          :param num: Nummer des Eingangs, an dem der Taster angeschlossen ist (1 bis 8)
-          :type num: integer
-
-          :return: Zustand des Eingangs (0: Kontakt geschlossen, d.h. Eingang mit Masse verbunden, 1: Kontakt geoeffnet)
-          :rtype: integer
-
-          Anwendungsbeispiel:
-
-          >>> if Taster.state() == 1:
-                print("Der Taster an Eingang I5 wurde gedrueckt.")
-        """
 
         class inp(object):
             def __init__(self, outer, num):
@@ -1797,40 +1047,6 @@ class ftrobopy(ftTXT):
         return inp(self, num)
 
     def resistor(self, num, wait=True):
-        """
-          Diese Funktion erzeugt ein analoges Input-Objekt zur Abfrage eines Widerstandes, der an einem der Eingaenge I1-I8 angeschlossenen ist. Dies kann z.B. ein temperaturabhaengiger Widerstand (NTC-Widerstand) oder auch ein Photowiderstand sein.
-
-          Anwendungsbeispiel:
-
-          >>> R = ftrob.resistor(7)
-
-          Das so erzeugte Widerstands-Objekt hat folgende Methoden:
-
-          **value** ()
-
-          Mit dieser Methode wird der Widerstand abgefragt.
-
-          :param num: Nummer des Eingangs, an dem der Widerstand angeschlossen ist (1 bis 8)
-          :type num: integer
-
-          :return: Der am Eingang anliegende Widerstandswert in Ohm fuer Widerstaende bis 15kOhm, fuer hoehere Widerstandswerte wird immer 15000 zurueckgegeben
-          :rtype: integer
-
-          Anwendungsbeispiel:
-
-          >>> print("Der Widerstand betraegt ", R.value())
-
-          **ntcTemperature** ()
-
-          Mit dieser Methode wird die Temperatur des fischertechnik NTC-Widerstands abgefragt.
-
-          :return: Die Temperatur des am Eingang angeschlossenen Widerstandes in Grad Celsius.
-          :rtype: float
-
-          Anwendungsbeispiel:
-
-          >>> print("Die Temperatur des fischertechnik NTC-Widerstands betraegt ", R.ntcTemperature())
-        """
 
         class inp(object):
             def __init__(self, outer, num):
@@ -1860,30 +1076,6 @@ class ftrobopy(ftTXT):
         return inp(self, num)
 
     def ultrasonic(self, num, wait=True):
-        """
-          Diese Funktion erzeugt ein Objekt zur Abfrage eines an einem der Eingaenge I1-I8 angeschlossenen
-          TX/TXT-Ultraschall-Distanzmessers.
-
-          Anwendungsbeispiel:
-
-          >>> ultraschall = ftrob.ultrasonic(6)
-
-          Das so erzeugte Ultraschall-Objekt hat folgende Methoden:
-
-          **distance** ()
-
-          Mit dieser Methode wird der aktuelle Distanz-Wert abgefragt
-
-          :param num: Nummer des Eingangs, an dem der Ultraschall-Distanzmesser angeschlossen ist (1 bis 8)
-          :type num: integer
-
-          :return: Die aktuelle Distanz zwischen Ultraschallsensor und vorgelagertem Objekt in cm.
-          :rtype: integer
-
-          Anwendungsbeispiel:
-
-          >>> print("Der Abstand zur Wand betraegt ", ultraschall.distance(), " cm.")
-        """
 
         class inp(object):
             def __init__(self, outer, num):
@@ -1902,29 +1094,6 @@ class ftrobopy(ftTXT):
         return inp(self, num)
 
     def voltage(self, num, wait=True):
-        """
-          Diese Funktion erzeugt ein analoges Input-Objekt zur Abfrage des Spannungspegels, der an einem der Eingaenge I1-I8 angeschlossenen ist. Damit kann z.B. auch der Ladezustand des Akkus ueberwacht werden. Der fischertechnik Farbsensor kann auch mit diesem Objekt abgefragt werden.
-
-          Anwendungsbeispiel:
-
-          >>> batterie = ftrob.voltage(7)
-
-          Das so erzeugte Spannungs-Mess-Objekt hat folgende Methoden:
-
-          **voltage** ()
-
-          Mit dieser Methode wird die anliegende Spannung (in mV) abgefragt. Es koennen Spannungen im Bereich von 5mV bis 10V gemessen werden. Ist die anliegende Spannung groesser als 600mV wird zusaetzlich der digitale Wert fuer diesen Eingang auf 1 gesetzt.
-
-          :param num: Nummer des Eingangs, an dem die Spannungsquelle (z.B. Batterie) angeschlossen ist (1 bis 8)
-          :type num: integer
-
-          :return: Die am Eingang anliegene Spannung (in mV)
-          :rtype: integer
-
-          Anwendungsbeispiel:
-
-          >>> print("Die Spannung betraegt ", batterie.voltage(), " mV")
-          """
 
         class inp(object):
             def __init__(self, outer, num):
@@ -1943,41 +1112,6 @@ class ftrobopy(ftTXT):
         return inp(self, num)
 
     def colorsensor(self, num, wait=True):
-        """
-          Diese Funktion erzeugt ein analoges Input-Objekt zur Abfrage des fischertechnik Farbsensors.
-          Beim Farbsensor handelt es sich um einen Fototransistor, der das von einer Oberflaeche
-          reflektierte Licht einer roten Lichtquelle misst. Der Abstand zwischen Farbsensor und zu
-          bestimmender Oberflaeche sollte zwischen 5mm und 10mm liegen.
-          Die Farben 'weiss', 'rot' und 'blau' koennen mit dieser Methode zuverlaessig unterschieden werden.
-
-          Der zurueckgelieferte Messwert ist die am Fototransistor anliegende Spannung in mV.
-          Die colorsensor() Funktion ist im Prinzip identisch zur voltage() Funktion.
-
-          Das so erzeugte Farbsensor-Objekt hat folgende Methoden:
-
-          **value** ()
-
-          Mit dieser Methode wird die anliegende Spannung (in mV) abgefragt.
-
-          :param num: Nummer des Eingangs, an dem der Sensor angeschlossen ist (1 bis 8)
-          :type num: integer
-
-          :return: Der erkannte Farbwert als Integer Zahl
-          :rtype: integer
-
-          **color** ()
-
-          Mit dieser Methode wird die erkannte Farbe als Wort zurueckgeliefert.
-
-          :return: Die erkannte Farbe
-          :rtype: string
-
-          Anwendungsbeispiel:
-
-          >>> farbsensor = txt.colorsensor(5)
-          >>> print("Der Farbwert ist      : ", farbsensor.value())
-          >>> print("Die erkannte Farbe ist: ", farbsensor.color())
-          """
 
         class inp(object):
             def __init__(self, outer, num):
@@ -2005,32 +1139,6 @@ class ftrobopy(ftTXT):
         return inp(self, num)
 
     def trailfollower(self, num, wait=True):
-        """
-          Diese Funktion erzeugt ein digitales Input-Objekt zur Abfrage eines Spursensors, der an einem der Eingaenge I1-I8 angeschlossenen ist.
-          (Intern ist diese Funktion identisch zur voltage()-Funktion und misst die anliegende Spannung in mV).
-          Ab einer Spannung von 600mV wird eine digitale 1 (Spur ist weiss) zurueckgeliefert, ansonsten ist der Wert eine digitale 0 (Spur ist schwarz).
-          Falls fuer den Spursensor ein analoger Eingangswert benoetigt wird, kann auch die voltage()-Funktion verwendet werden.
-
-          Anwendungsbeispiel:
-
-          >>> L = ftrob.trailfollower(7)
-
-          Das so erzeugte Sensor-Objekt hat folgende Methoden:
-
-          **state** ()
-
-          Mit dieser Methode wird der Spursensor abgefragt.
-
-          :param num: Nummer des Eingangs, an dem der Sensor angeschlossen ist (1 bis 8)
-          :type num: integer
-
-          :return: Der Wert des Spursensors (0 oder 1), der am Eingang angeschlossen ist.
-          :rtype: integer
-
-          Anwendungsbeispiel:
-
-          >>> print("Der Wert des Spursensors ist ", L.state())
-        """
 
         class inp(object):
             def __init__(self, outer, num):
@@ -2057,50 +1165,6 @@ class ftrobopy(ftTXT):
         return inp(self, num)
 
     def joystick(self, joynum, remote_number=0, remote_type=0):
-        """
-          Diese Funktion erzeugt ein Input-Objekt zur Abfrage eines Joysticks einer fischertechnik IR-Fernbedienung.
-
-          :param joynum: Nummer des Joysticks, der abgefragt werden soll.
-
-          + 0: linker Joystick
-          + 1: rechter Joystick
-
-          :param remote_number: (optionaler Parameter) Nummer der IR-Fernbedienung.
-
-          Es koennen bis zu 4 fischertechnik IR-Fernbedienungen gleichzeitig abgefragt werden, die ueber ihre DIP-Schalter-Einstellungen voneinander unterschieden werden:
-
-          + OFF OFF : Nummer 1
-          + ON  OFF : Nummer 2
-          + OFF ON  : Nummer 3
-          + ON  ON  : Nummer 4
-
-          Wird der parameter remote_number=0 gesetzt, kann damit jede der 4 moeglichen Fernbedienungen abgefragt werden, unabhaengig von ihren DIP-Schalter Einstellungen. Dies ist die Standardeinstellung, falls der Parameter nicht angegeben wird.
-
-          Anwendungsbeispiel:
-
-          >>> joystickLinks   = ftrob.joystick(0)
-          >>> joystickRechts  = ftrob.joystick(1)
-          >>> joystickNummer3 = ftrob.joystick(0, 2) # linker Joystick, der Fernbedienung Nummer 2 (Dip-Switch: ON OFF)
-
-          Das so erzeugte Joystick-Objekt hat folgende Methoden:
-
-          **leftright** ()
-
-          Mit dieser Methode wird die horizontale (links-rechts) Achse abgefragt.
-
-          :return: -15 (Joystick ganz nach links) bis +15 (Joystick ganz nach recht), 0: Mittelstellung
-
-          **updown** ()
-
-          Mit dieser Methode wird die vertikale (hoch-runter) Achse abgefragt.
-
-          :return: -15 (Joystick ganz nach unten) bis +15 (Joystick ganz nach oben), 0: Mittelstellung
-
-          Anwendungsbeispiel:
-
-          >>> joystick1 = ftrob.joystick(0) # linker Joystick einer bel. IR-Fernsteuerung
-          >>> print("Links-Rechts-Stellung=", joystick1.leftright(), " Hoch-Runter-Stellung=", joystick1.updown())
-        """
 
         class remote(object):
             def __init__(self, outer, joynum, remote_number, remote_type):
@@ -2132,47 +1196,6 @@ class ftrobopy(ftTXT):
         return remote(self, joynum, remote_number, remote_type)
 
     def joybutton(self, buttonnum, remote_number=0, remote_type=0):
-        """
-          Diese Funktion erzeugt ein Input-Objekt zur Abfrage eines Buttons einer fischertechnik IR-Fernbedienung.
-
-          :param buttonnum: Nummer des Buttons, der abgefragt werden soll.
-
-          + 0: linker Button (ON)
-          + 1: rechter Button (OFF)
-
-          :param remote_number: (optionaler Parameter) Nummer der IR-Fernbedienung.
-
-          Es koennen bis zu 4 fischertechnik IR-Fernbedienungen gleichzeitig abgefragt werden, die ueber ihre DIP-Schalter-Einstellungen voneinander unterschieden werden:
-
-          + OFF OFF  : Nummer 1
-          + ON  OFF  : Nummer 2
-          + OFF ON   : Nummer 3
-          + ON  ON   : Nummer 4
-
-          Wird der parameter remote_number=0 gesetzt, kann damit jede der 4 moeglichen Fernbedienungen abgefragt werden, unabhaengig von ihren DIP-Schalter Einstellungen. Dies ist die Standardeinstellung, falls der Parameter nicht angegeben wird.
-
-          Anwendungsbeispiel:
-
-          >>> buttonON    = ftrob.joybutton(0)
-          >>> buttonOFF   = ftrob.joybutton(1)
-          >>> buttonOFF_2 = ftrob.joybutton(0, 4) # linker (ON)-Button, der Fernbedienung Nummer 4 (Dip-Switch: ON ON)
-
-          Das so erzeugte Button-Objekt hat die folgende Methode:
-
-          **pressed** ()
-
-          Mit dieser Methode wird abgefragt, ob der Button gedrueckt ist.
-
-          :return: False (=Button ist nicht gedrueckt) oder True (=Button ist gedrueckt)
-          :rtype: boolean
-
-          Anwendungsbeispiel:
-
-          >>> button1 = ftrob.joybutton(0) # linker (ON) Button einer bel. IR-Fernsteuerung
-          >>> while not button1.pressed():
-          >>>   time.sleep(0.1)
-          >>> print("Button ON wurde gedrueckt")
-        """
 
         class remote(object):
             def __init__(self, outer, buttonnum, remote_number, remote_type):
@@ -2201,32 +1224,6 @@ class ftrobopy(ftTXT):
         return remote(self, buttonnum, remote_number, remote_type)
 
     def joydipswitch(self, remote_type=0):
-        """
-          Diese Funktion erzeugt ein Input-Objekt zur Abfrage des DIP-Schalters einer fischertechnik IR-Fernbedienung.
-
-          Anwendungsbeispiel:
-
-          >>> IR_DipSchalter = ftrob.joydipswitch()
-
-          Das so erzeugte Button-Objekt hat die folgende Methode:
-
-          **setting** ()
-
-          Mit dieser Methode wird die DIP-Schalter-Einstellung abgefragt:
-
-          + OFF OFF  = 0
-          + ON  OFF  = 1
-          + OFF ON   = 2
-          + ON  ON   = 3
-
-          :return: Wert des DIP-Schalters (0-3)
-          :rtype: integer
-
-          Anwendungsbeispiel:
-
-          >>> IR_DipSchalter = ftrob.joydipswitch()
-          >>> print("Die aktuelle Einstellung des DIP-Schalters ist: ", IR_DipSchalter.setting())
-        """
 
         class remote(object):
             def __init__(self, outer, remote_type):
@@ -2263,5 +1260,5 @@ while not Motor_rechts.finished():
     if d < 10:
         Motor_rechts.stop()
         Motor_links.stop()
-        if TXT.sound_finished():
-            TXT.play_sound(3, 1)
+Motor_rechts.stop()
+Motor_links.stop()
