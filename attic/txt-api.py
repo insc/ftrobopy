@@ -38,24 +38,7 @@ def default_data_handler(ftTXT):
 
 
 class ftTXT(object):
-    """
-      Basisklasse zum fischertechnik TXT Computer.
-      Implementiert das Protokoll zum Datenaustausch ueber Unix Sockets.
-      Die Methoden dieser Klasse werden typischerweise vom End-User nicht direkt aufgerufen, sondern
-      nur indirekt ueber die Methoden der Klasse ftrobopy.ftrobopy, die eine Erweiterung der Klasse ftrobopy.ftTXTBase darstellt.
-
-      Die folgenden Konstanten werden in der Klasse definiert:
-
-          + ``C_VOLTAGE    = 0`` *Zur Verwendung eines Eingangs als Spannungsmesser*
-          + ``C_SWITCH     = 1`` *Zur Verwendung eines Eingangs als Taster*
-          + ``C_RESISTOR   = 1`` *Zur Verwendung eines Eingangs als Widerstand, z.B. Photowiderstand*
-          + ``C_ULTRASONIC = 3`` *Zur Verwendung eines Eingangs als Distanzmesser*
-          + ``C_ANALOG     = 0`` *Eingang wird analog verwendet*
-          + ``C_DIGITAL    = 1`` *Eingang wird digital verwendet*
-          + ``C_OUTPUT     = 0`` *Ausgang (O1-O8) wird zur Ansteuerung z.B. einer Lampe verwendet*
-          + ``C_MOTOR      = 1`` *Ausgang (M1-M4) wird zur Ansteuerung eines Motors verwendet*
-    """
-
+  
     C_VOLTAGE = 0
     C_SWITCH = 1
     C_RESISTOR = 1
