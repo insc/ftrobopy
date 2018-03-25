@@ -9,16 +9,6 @@ import struct
 import time
 from math import sqrt, log
 
-__author__ = "Torsten Stuehn"
-__copyright__ = "Copyright 2015, 2016, 2017 by Torsten Stuehn"
-__credits__ = "fischertechnik GmbH"
-__license__ = "MIT License"
-__version__ = "1.84"
-__maintainer__ = "Torsten Stuehn"
-__email__ = "stuehn@mailbox.org"
-__status__ = "release"
-__date__ = "12/30/2017"
-
 
 def tracing(F):
     def wrapper(*args):
@@ -38,23 +28,6 @@ def default_data_handler(ftTXT):
 
 
 class ftTXT(object):
-    """
-      Basisklasse zum fischertechnik TXT Computer.
-      Implementiert das Protokoll zum Datenaustausch ueber Unix Sockets.
-      Die Methoden dieser Klasse werden typischerweise vom End-User nicht direkt aufgerufen, sondern
-      nur indirekt ueber die Methoden der Klasse ftrobopy.ftrobopy, die eine Erweiterung der Klasse ftrobopy.ftTXTBase darstellt.
-
-      Die folgenden Konstanten werden in der Klasse definiert:
-
-          + ``C_VOLTAGE    = 0`` *Zur Verwendung eines Eingangs als Spannungsmesser*
-          + ``C_SWITCH     = 1`` *Zur Verwendung eines Eingangs als Taster*
-          + ``C_RESISTOR   = 1`` *Zur Verwendung eines Eingangs als Widerstand, z.B. Photowiderstand*
-          + ``C_ULTRASONIC = 3`` *Zur Verwendung eines Eingangs als Distanzmesser*
-          + ``C_ANALOG     = 0`` *Eingang wird analog verwendet*
-          + ``C_DIGITAL    = 1`` *Eingang wird digital verwendet*
-          + ``C_OUTPUT     = 0`` *Ausgang (O1-O8) wird zur Ansteuerung z.B. einer Lampe verwendet*
-          + ``C_MOTOR      = 1`` *Ausgang (M1-M4) wird zur Ansteuerung eines Motors verwendet*
-    """
 
     C_VOLTAGE = 0
     C_SWITCH = 1
@@ -96,38 +69,6 @@ class ftTXT(object):
     @tracing
     def __init__(self, host='127.0.0.1', port=65000, serport='/dev/ttyO2', on_error=default_error_handler,
                  on_data=default_data_handler, directmode=False):
-        """
-          Initialisierung der ftTXT Klasse:
-
-          * Alle Ausgaenge werden per default auf 1 (=Motor) gesetzt
-          * Alle Eingaenge werden per default auf 1, 0 (=Taster, digital) gesetzt
-          * Alle Zaehler werden auf 0 gesetzt
-
-          :param host: Hostname oder IP-Nummer des TXT Moduls
-          :type host: string
-
-          - '127.0.0.1' im Downloadbetrieb
-          - '192.168.7.2' im USB Offline-Betrieb
-          - '192.168.8.2' im WLAN Offline-Betrieb
-          - '192.168.9.2' im Bluetooth Offline-Betreib
-
-          :param port: Portnummer (normalerweise 65000)
-          :type port: integer
-
-          :param serport: Serieller Port zur direkten Ansteuerung der Motorplatine des TXT
-          :type serport: string
-
-          :param on_error: Errorhandler fuer Fehler bei der Kommunikation mit dem Controller (optional)
-          :type port: function(str, Exception) -> bool
-
-
-          :return: Leer
-
-          Anwedungsbeispiel:
-
-          >>> import ftrobopy
-          >>> txt = ftrobopy.ftTXT('192.168.7.2', 65000)
-        """
         self._m_devicename = b''
         self._m_version = 0
         self._host = host
@@ -238,14 +179,6 @@ class ftTXT(object):
         self._current_extension_power = 0
         self._debug = []
         self._exchange_data_lock.release()
-
-    @tracing
-    def isOnline(self):
-        return (not self._txt_stop_event.isSet()) and (self._txt_thread is not None)
-
-    @tracing
-    def cameraIsOnline(self):
-        return (not self._camera_stop_event.isSet()) and (self._camera_thread is not None)
 
     @tracing
     def queryStatus(self):
@@ -2263,5 +2196,3 @@ while not Motor_rechts.finished():
     if d < 10:
         Motor_rechts.stop()
         Motor_links.stop()
-        if TXT.sound_finished():
-            TXT.play_sound(3, 1)
