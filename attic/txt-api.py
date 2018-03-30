@@ -67,50 +67,12 @@ class ftTXT(object):
     C_SND_STATE_DATA = 0x04
 
     @tracing
-    def __init__(self, host='127.0.0.1', port=65000):
-        self._m_devicename = b''
-        self._m_version = 0
-        self._host = host
-        self._port = port
+    def __init__(self, host='127.0.0.1'):
+        print('Init ftTXT' )
         self._ser_port = '/dev/ttyO2'
-        self._spi = None
-        self._SoundFilesDir = ''
-        self._SoundFilesList = []
-        # current state of sound-communication state-machine in 'direct'-mode
-        self._sound_state = 0
-        self._sound_data = []  # curent buffer for sound data (wav-file[44:])
-        self._sound_data_idx = 0
-        self._sound_current_rep = 0
-        self._sound_current_volume = 100
-
         import serial
         self._ser_ms = serial.Serial(self._ser_port, 230000, timeout=1)
         self._sock = None
-        import spidev
-        try:
-            self._spi = spidev.SpiDev(1, 0)  # /dev/spidev1.0
-        except error:
-            print("Error opening SPI device (this is needed for sound in 'direct'-mode).")
-            # print(error)
-            self._spi = None
-        if self._spi:
-            self._spi.mode = 3
-            self._spi.bits_per_word = 8
-            self._spi.max_speed_hz = 1000000
-            # reset sound on motor shield
-            res = self._spi.xfer([self.C_SND_CMD_RESET, 0, 0])
-            if res[0] != self.C_SND_MSG_RX_CMD:
-                print("Error: initial sound reset returns: ",
-                      ''.join(["0x%02X " % x for x in res]).split())
-                sys.exit(-1)
-            # check if we are running on original-firmware or on community-firmware
-            # this is only needed to find the original Sound Files
-            if os.path.isdir('/rom'):
-                self._SoundFilesDir = ('/rom/opt/knobloch/SoundFiles/')
-            else:
-                self._SoundFilesDir = ('/opt/knobloch/SoundFiles/')
-            self._SoundFilesList = os.listdir(self._SoundFilesDir)
-            self._SoundFilesList.sort()
 
 
         self._txt_stop_event = threading.Event()
@@ -177,100 +139,19 @@ class ftTXT(object):
         self._debug = []
         self._exchange_data_lock.release()
 
-    @tracing
-    def queryStatus(self):
-        """
-           Abfrage des Geraetenamens und der Firmware Versionsnummer des TXT
-           Nach dem Umwandeln der Versionsnummer in einen Hexadezimalwert, kann
-           die Version direkt abgelesen werden.
 
-           :return: Geraetename (string), Versionsnummer (integer)
-
-           Anwendungsbeispiel:
-
-           >>> name, version = txt.queryStatus()
-        """
-
-        # not sure how to detect version yet, just set standard value
-        self._m_devicename = 'TXT direct'
-        self._m_version = 0x4010500
-        self._m_firmware = 'firmware version not detected'
-        return self._m_devicename, self._m_version
-
-    def getDevicename(self):
-        """
-           Liefert den zuvor mit queryStatus() ausgelesenen Namen des TXT zurueck
-
-           :return: Geraetename (string)
-
-           Anwendungsbeispiel:
-
-           >>> print('Name des TXT: ', txt.getDevicename())
-        """
-        return self._m_devicename
-
-    def getVersionNumber(self):
-        """
-           Liefert die zuvor mit queryStatus() ausgelesene Versionsnummer zurueck.
-           Um die Firmwareversion direkt ablesen zu koennen, muss diese Nummer noch in
-           einen Hexadezimalwert umgewandelt werden
-
-           :return: Versionsnummer (integer)
-
-           Anwendungsbeispiel:
-
-           >>> print(hex(txt.getVersionNumber()))
-        """
-        return self._m_version
-
-    def getFirmwareVersion(self):
-        """
-           Liefert die zuvor mit queryStatus() ausgelesene Versionsnummer als
-           Zeichenkette (string) zurueck.
-
-           :return: Firmware Versionsnummer (str)
-
-           Anwendungsbeispiel:
-
-           >>> print(txt.getFirmwareVersion())
-        """
-        return self._m_firmware
-
-    def startOnline(self, update_interval=0.02):
-        """
-           Startet den Onlinebetrieb des TXT und startet einen Python-Thread, der die Verbindung zum TXT aufrecht erhaelt.
-
-           :return: Leer
-
-           Anwendungsbeispiel:
-
-           >>> txt.startOnline()
-        """
+    def startOnline(self):
         if self._txt_stop_event.isSet():
             self._txt_stop_event.clear()
         if self._txt_thread is None:
             self._txt_thread = ftTXTexchange(
-                txt=self, sleep_between_updates=update_interval, stop_event=self._txt_stop_event)
+                txt=self, sleep_between_updates=0.02, stop_event=self._txt_stop_event)
             self._txt_thread.setDaemon(True)
             self._txt_thread.start()
-            # keep_connection_thread is needed when using SyncDataBegin/End in interactive python mode
-            # self._txt_keep_connection_stop_event = threading.Event()
-            # self._txt_keep_connection_thread = ftTXTKeepConnection(self, 1.0, self._txt_keep_connection_stop_event)
-            # self._txt_keep_connection_thread.setDaemon(True)
-            # self._txt_keep_connection_thread.start()
         return None
 
 
     def stopOnline(self):
-        """
-           Beendet den Onlinebetrieb des TXT und beendet den Python-Thread der fuer den Datenaustausch mit dem TXT verantwortlich war.
-
-           :return: Leer
-
-           Anwendungsbeispiel:
-
-           >>> txt.stopOnline()
-        """
         self._txt_stop_event.set()
         self._txt_thread = None
         if self._spi:
@@ -1310,153 +1191,14 @@ class ftTXTexchange(threading.Thread):
 
 
 class ftrobopy(ftTXT):
-    """
-      Erweiterung der Klasse ftrobopy.ftTXT. In dieser Klasse werden verschiedene fischertechnik Elemente
-      auf einer hoeheren Abstraktionsstufe (aehnlich den Programmelementen aus der ROBOPro Software) fuer den End-User zur Verfuegung gestellt.
-      Derzeit sind die folgenden Programmelemente implementiert:
 
-      * **motor**, zur Ansteuerung der Motorausgaenge M1-M4
-      * **output**, zur Ansteuerung der universellen Ausgaenge O1-O8
-      * **input**, zum Einlesen von Werten der Eingaenge I1-I8
-      * **resistor**, zum Messen eines Ohm'schen Widerstaenden
-      * **ultrasonic**, zur Bestimmung von Distanzen mit Hilfe des Ultraschall Moduls
-      * **voltage**, zum Messen einer Spannung
-      * **colorsensor**, zur Abfrage des fischertechnik Farbsensors
-      * **trailfollower**, zur Abfrage des fischertechnik Spursensors
-      * **joystick**, zur Abfrage eines Joysticks einer fischertechnik IR-Fernbedienung
-      * **joybutton**, zur Abfrage eines Buttons einer fischertechnik IR-Fernbedienung
-      * **joydipswitch**, zur Abfrage der DIP-Schalter-Einstellung einer IR-Fernbedienung
-
-      Ausserdem werden die folgenden Sound-Routinen zur Verfuegung gestellt:
-
-      * **play_sound**
-      * **stop_sound**
-      * **sound_finished**
-
-    """
-
-    def __init__(self, host='127.0.0.1', port=65000, update_interval=0.01, special_connection='127.0.0.1'):
-        """
-          Initialisierung der ftrobopy Klasse:
-
-          * Aufbau der Socket-Verbindung zum TXT Controller mit Hilfe der Basisklasse ftTXT und Abfrage des Geraetenamens und der Firmwareversionsnummer
-          * Initialisierung aller Datenfelder der ftTXT Klasse mit Defaultwerten und Setzen aller Ausgaenge des TXT auf 0
-          * Starten eines Python-Hintergrundthreads der die Kommunikation mit dem TXT aufrechterhaelt
-
-          :param host: Hostname oder IP-Nummer des TXT Moduls
-          :type host: string
-
-          - 'auto' automatisch den passenden Modus finden.
-          - '127.0.0.1' oder 'localhost' automatisch den direct- oder den socket-Modus verwenden, abhaengig davon, ob der Prozess TxtControl Main aktiv ist oder nicht.
-          - '192.168.7.2' im USB Offline-Betrieb
-          - '192.168.8.2' im WLAN Offline-Betrieb
-          - '192.168.9.2' im Bluetooth Offline-Betreib
-          - 'direct' im Seriellen Online-Betrieb mit direkter Ansteuerung der Motor-Platine des TXT
-
-          :param port: Portnummer (normalerweise 65000)
-          :type port: integer
-
-          :param update_interval: Zeit (in Sekunden) zwischen zwei Aufrufen des Datenaustausch-Prozesses mit dem TXT
-          :type update_intervall: float
-
-          :param special_connection: IP-Adresse des TXT, falls dieser ueber einen Router im WLAN-Netz angesprochen wird (z.B. '10.0.2.7')
-          :type special_connection: string
-
-          :return: Leer
-
-          Anwedungsbeispiel:
-
-          >>> import ftrobopy
-          >>> ftrob = ftrobopy.ftrobopy('auto')
-        """
-
-        def probe_socket(host, p=65000, timeout=0.5):
-            s = socket.socket()
-            s.settimeout(timeout)
-            ok = True
-            try:
-                s.connect((host, p))
-            except Exception as err:
-                ok = False
-            s.close()
-            return ok
-
-        self._txt_is_initialized = False
-        if host[:4] == 'auto' or host == '127.0.0.1' or host == 'localhost':
-            # first check if running on TXT:
-            if str.find(socket.gethostname(), 'FT-txt') >= 0 or str.find(socket.gethostname(), 'ft-txt') >= 0:
-                txt_control_main_is_running = False
-                # check if TxtMainControl is not running
-                pids = [pid for pid in os.listdir('/proc') if pid.isdigit()]
-                for pid in pids:
-                    try:
-                        line = open(os.path.join('/proc', pid, 'cmdline'), 'rb').read()
-                        if line.decode('utf-8').find('TxtControlMain') >= 0:
-                            txt_control_main_is_running = True
-                            break
-                    except IOError:
-                        continue
-                    except:
-                        break
-                if txt_control_main_is_running:
-                    if probe_socket('127.0.0.1'):
-                        host = '127.0.0.1'
-                    else:
-                        print(
-                            "Error: auto-detection failed, TxtControlMain-Prozess is running, but did not respond.")
-                        return
-                else:
-                    host = 'direct'
-            # not running on TXT-controller, check standard ports (only in auto mode)
-            else:
-                if host[:4] == 'auto':
-                    if probe_socket('192.168.7.2'):  # USB (Ethernet)
-                        host = '192.168.7.2'
-                    elif probe_socket('192.168.8.2'):  # WLAN
-                        host = '192.168.8.2'
-                    elif probe_socket('192.168.9.2'):  # Blutooth
-                        host = '192.168.9.2'
-                    # non standard port, e.g. home network
-                    elif probe_socket(special_connection):
-                        host = special_connection
-                    else:
-                        print(
-                            "Error: could not auto detect TXT connection. Please specify host and port manually !")
-                        return
-
-        if host[:6] == 'direct':
-            # check if running on FT-txt
-            if str.find(socket.gethostname(), 'FT-txt') < 0 and str.find(socket.gethostname(), 'ft-txt') < 0:
-                print("ftrobopy konnte nicht initialisiert werden.")
-                print("Der 'direct'-Modus kann nur im Download/Offline-Betrieb auf dem TXT verwendet werden !")
-                return None
-            # check if TxtMainControl is running, if yes quit
-            pids = [pid for pid in os.listdir('/proc') if pid.isdigit()]
-            for pid in pids:
-                try:
-                    line = open(os.path.join('/proc', pid, 'cmdline'), 'rb').read()
-                    if line.decode('utf-8').find('TxtControlMain') >= 0:
-                        print("ftrobopy konnte nicht initialisiert werden.")
-                        print(
-                            "Der Prozess 'TxtControlMain' muss vor der Verwendung des 'direct'-Modus beendet werden !")
-                        return None
-                except IOError:
-                    continue
-                except:
-                    print("ftrobopy konnte nicht im 'direct'-Modus initialisiert werden.")
-                    return
-            ftTXT.__init__(self)
-        else:
-            ftTXT.__init__(self, host, port)
+    def __init__(self):
+        ftTXT.__init__(self)
         self._txt_is_initialzed = True
-        self.queryStatus()
-        if self.getVersionNumber() < 0x4010500:
-            print('ftrobopy needs at least firmwareversion ', hex(0x4010500), '.')
-            sys.exit()
-        print('Connected to ', self.getDevicename(), self.getFirmwareVersion())
+        print('Connected to txt.')
         for i in range(8):
             self.setPwm(i, 0)
-        self.startOnline(update_interval)
+        self.startOnline()
         self.updateConfig()
 
     def __del__(self):
