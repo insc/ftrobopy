@@ -67,15 +67,12 @@ class ftTXT(object):
     C_SND_STATE_DATA = 0x04
 
     @tracing
-    def __init__(self, host='127.0.0.1', port=65000, serport='/dev/ttyO2', on_error=default_error_handler,
-                 on_data=default_data_handler, directmode=False):
+    def __init__(self, host='127.0.0.1', port=65000):
         self._m_devicename = b''
         self._m_version = 0
         self._host = host
         self._port = port
-        self._ser_port = serport
-        self.handle_error = on_error
-        self.handle_data = on_data
+        self._ser_port = '/dev/ttyO2'
         self._spi = None
         self._SoundFilesDir = ''
         self._SoundFilesList = []
