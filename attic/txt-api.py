@@ -49,23 +49,6 @@ class ftTXT(object):
     C_MOT_INPUT_ANALOG_5K = 3
     C_MOT_INPUT_ULTRASONIC = 4
 
-    # sound commands and messages for spi communication to motor shield (only needed in direct mode)
-    C_SND_CMD_STATUS = 0x80
-    C_SND_CMD_DATA = 0x81
-    C_SND_CMD_RESET = 0x90
-    C_SND_MSG_RX_CMD = 0xBB  # return if in CMD mode
-    C_SND_MSG_RX_DATA = 0x55  # return if in DATA mode
-    C_SND_MSG_RX_COMPLETE = 0xAA  # return after all data has been transfered
-    C_SND_MSG_ERR_SIZE = 0xFE  # spi buffer overflow
-    C_SND_MSG_ERR_FULL = 0xFF  # spi communication not possible, all buffers are full
-    C_SND_FRAME_SIZE = 441  # 22050 Hz, 20ms
-    # sound communication state machine
-    C_SND_STATE_IDLE = 0x00
-    C_SND_STATE_START = 0x01
-    C_SND_STATE_STOP = 0x02
-    C_SND_STATE_RUNNING = 0x03
-    C_SND_STATE_DATA = 0x04
-
     @tracing
     def __init__(self, host='127.0.0.1'):
         print('Init ftTXT' )
@@ -799,6 +782,7 @@ class ftTXTKeepConnection(threading.Thread):
       """
 
     def __init__(self, txt, maxtime, stop_event):
+        print('ftTXTKeepConnection init')
         threading.Thread.__init__(self)
         self._txt = txt
         self._txt_maxtime = maxtime
@@ -807,6 +791,7 @@ class ftTXTKeepConnection(threading.Thread):
 
     def run(self):
         while not self._txt_stop_event.is_set():
+            print('ftTXTKeepConnection run')
             try:
                 self._txt._keep_running_lock.acquire()
                 o_time = self._txt._update_timer
