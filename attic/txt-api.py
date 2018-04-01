@@ -2,6 +2,7 @@ from __future__ import print_function
 import threading
 import struct
 import time
+import binascii
 from math import sqrt, log
 
 
@@ -362,8 +363,10 @@ class ftTXTexchange(threading.Thread):
                 # fmtstr += 'BBBBBB' # dummy bytes to fill up structure to 15 bytes in total
                 buflen = struct.calcsize(fmtstr)
                 buf = struct.pack(fmtstr, *fields)
+                print('buf w>', binascii.hexlify(buf))
                 self._txt._ser_ms.write(buf)
                 data = self._txt._ser_ms.read(len(buf))
+                print('buf r>', binascii.hexlify(data))
 
             #
             # transfer parameter data from TXT to motor shield
