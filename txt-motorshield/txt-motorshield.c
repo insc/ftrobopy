@@ -4,6 +4,7 @@
 #include <unistd.h> /* UNIX Standard Definitions         */
 #include <errno.h>  /* ERROR Number Definitions          */
 
+
 int writeBuf(int fd, char* buffer, int size);
 int readBuf(int fd, char* buffer, int size);
 
