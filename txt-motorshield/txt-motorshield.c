@@ -12,6 +12,7 @@ int main() {
 	char buffer[15] = { 0x00 };
 	for (int i = 0; i < 15; i++)
 		printf("%02x ", buffer[i]);
+
 	printf("\n +----------------------------------+\n");
 
 	while (1) {
@@ -27,6 +28,7 @@ int main() {
 	}
 	close_ms_serialport(fd);
 	return 0;
+
 }
 
 
