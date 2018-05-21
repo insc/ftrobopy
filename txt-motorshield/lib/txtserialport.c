@@ -8,20 +8,24 @@
 #define MS_SERIALPORT "/dev/ttyO2"
 
 int open_ms_serialport() {
-	int fd = open(MS_SERIALPORT, O_RDWR | O_NOCTTY);
+	int fd = open(MS_SERIALPORT, O_RDWR | O_NOCTTY | O_NONBLOCK);
 	if (fd == 1) {
 		printf("Error in opening ttyO2\n");
 	} else {
 		printf("Opened Successfully\n");
 	}
-	struct termios SerialPortSettings; /* Create the structure                          */
+	struct termios serial_config; /* Create the structure                          */
 
-	tcgetattr(fd, &SerialPortSettings); /* Get the current attributes of the Serial port */
-
-	/* Setting the Baud rate */
-	cfsetispeed(&SerialPortSettings, B230400);
-
-	if ((tcsetattr(fd, TCSANOW, &SerialPortSettings)) != 0) /* Set the attributes to the termios structure*/
+	tcgetattr(fd, &serial_config); /* Get the current attributes of the Serial port */
+	cfsetispeed(&serial_config, B230400);
+	cfsetospeed(&serial_config, B230400);
+	serial_config.c_cc[VMIN] = 0;
+	serial_config.c_cc[VTIME] = 0;
+	serial_config.c_iflag &= ~(BRKINT | ICRNL | IMAXBEL);
+	serial_config.c_oflag &= ~(OPOST | ONLCR);
+	serial_config.c_lflag &= ~(ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK
+			| ECHOCTL | ECHOKE);
+	if ((tcsetattr(fd, TCSANOW, &serial_config)) != 0) /* Set the attributes to the termios structure*/
 		printf("\n  ERROR ! in Setting attributes");
 	else
 		printf("\n  BaudRate = B230400");

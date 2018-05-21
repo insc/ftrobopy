@@ -10,8 +10,9 @@ int main() {
 	char write_buffer[] = { 0x51, 0x01, 0x00, 0x11, 0x11, 0x11, 0x11, 0x00,
 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	char buffer[15] = { 0x00 };
+	printf("\n");
 	for (int i = 0; i < 15; i++)
-		printf("%02x ", buffer[i]);
+		printf("%02x ", write_buffer[i]);
 
 	printf("\n +----------------------------------+\n");
 
@@ -28,7 +29,6 @@ int main() {
 	}
 	close_ms_serialport(fd);
 	return 0;
-
 }
 
 
