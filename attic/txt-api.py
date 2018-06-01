@@ -62,11 +62,6 @@ class ftTXT(object):
                           1, 1, b'\x00\x00',
                           1, 1, b'\x00\x00',
                           1, 1, b'\x00\x00']
-        self._ftX1_cnt = [1, b'\x00\x00\x00',
-                          1, b'\x00\x00\x00',
-                          1, b'\x00\x00\x00',
-                          1, b'\x00\x00\x00']
-        self._ftX1_motor_config = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         self._exchange_data_lock.acquire()
         self._pwm = [0, 0, 0, 0, 0, 0, 0, 0]
         self._motor_sync = [0, 0, 0, 0]
@@ -127,7 +122,9 @@ class ftTXT(object):
         # MODE_R2=2
         # MODE_ULTRASONIC=3
         # MODE_INVALID=4
-        # print("setConfig I=", I)
+        print("setConfig I=", I)
+        print("setConfig M=", M)
+        print("_ftX1_uni  =", self._ftX1_uni)
         self._ftX1_uni = [I[0][0], I[0][1], b'\x00\x00',
                           I[1][0], I[1][1], b'\x00\x00',
                           I[2][0], I[2][1], b'\x00\x00',
@@ -136,6 +133,7 @@ class ftTXT(object):
                           I[5][0], I[5][1], b'\x00\x00',
                           I[6][0], I[6][1], b'\x00\x00',
                           I[7][0], I[7][1], b'\x00\x00']
+        print("_ftX1_uni  =", self._ftX1_uni)
         return None
 
     def getConfig(self):
@@ -345,7 +343,11 @@ class ftTXTexchange(threading.Thread):
                     else:
                         # fall back to default case
                         direct_mode = ftTXT.C_MOT_INPUT_ANALOG_VOLTAGE
-
+                    print('inp index  =', int(k / 2));
+                    print('inp value  =', inp[int(k / 2)])
+                    print('direct_mode =', direct_mode)
+                    print('(direct_mode & 0x0F) =', (direct_mode & 0x0F))
+                    print('(4 * (k % 2))        =', (4 * (k % 2)))
                     inp[int(k / 2)] |= (direct_mode & 0x0F) << (4 * (k % 2))
                 fields.append(inp[0])
                 fields.append(inp[1])
@@ -471,8 +473,6 @@ class ftTXTexchange(threading.Thread):
             data = self._txt._ser_ms.read(len(buf))
             print('DATA data len', len(data))
             print('DATA data r>', binascii.hexlify(data))
-            for ind in range(24):
-                print('_ftX1_uni', ind, self._txt._ftX1_uni[ind])
             # the answer of the motor shield has the following format
             #
             # fmtstr  = '<'
@@ -885,6 +885,8 @@ print("Start ...")
 
 Motor_rechts = TXT.motor(1)
 Motor_links = TXT.motor(2)
+Switch = TXT.input(1)
+Resistor = TXT.resistor(3)
 Ultraschall = TXT.ultrasonic(8)
 print('Sleep start');
 time.sleep(2)  # wait until initilized
@@ -896,7 +898,9 @@ Motor_links.setDistance(1000, syncto=Motor_rechts)
 
 while not Motor_rechts.finished():
     d = Ultraschall.distance()
-    print(d)
+    print('distance =', d)
+    print('switch =', Switch.state())
+    print('resistor =', Resistor.value())
     if d < 10:
         Motor_rechts.stop()
         Motor_links.stop()
