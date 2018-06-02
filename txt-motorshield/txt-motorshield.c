@@ -4,16 +4,8 @@
 #include <unistd.h> /* UNIX Standard Definitions         */
 #include <errno.h>  /* ERROR Number Definitions          */
 #include "lib/txtserialport.h"
+#include "lib/txtmotorshield.h"
 
-typedef struct txt_io_config {
-	char cmd;
-	char cycle;
-	char master; // not used
-	char ftX1_uni[4];
-	char crc_1; // not used;
-	char crc_2; // not used;
-	char empty[6];
-} txt_io_config;
 
 int main() {
 	int fd = open_ms_serialport();
@@ -21,10 +13,19 @@ int main() {
 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	char buffer[15] = { 0x00 };
 
-	txt_io_config io_config = { .cmd = 0x51, .cycle = 0x01, .master = 0x00, .ftX1_uni = { 0x0, 0x00, 0x00, 0x00 }, .crc_1 = 0x00, .crc_2 = 0x00, .empty = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
 
-	io_config.cycle = 0x02;
-
+	config_voltage(1);
+	config_voltage(2);
+	config_voltage(3);
+	config_voltage(4);
+	config_voltage(5);
+	config_voltage(6);
+	config_voltage(7);
+	config_voltage(8);
+	config_switch(1);
+	config_resistor(3);
+	config_ultra_sonic(8);
+	txt_io_config io_config = *get_txt_io_config();
 	printf("\n +----------------------------------+\n");
 	printf("\n Struct io_config %d \n", sizeof(io_config));
 	char* p = (char *) &io_config;

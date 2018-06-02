@@ -49,11 +49,6 @@ class ftTXT(object):
         self._cycle_count = 0
         self._config_id = 0
         self._config_id_old = 0
-        self._m_extension_id = 0
-        self._ftX1_pgm_state_req = 0
-        self._ftX1_old_FtTransfer = 0
-        self._ftX1_dummy = b'\x00\x00'
-        self._ftX1_motor = [1, 1, 1, 1]
         self._ftX1_uni = [1, 1, b'\x00\x00',
                           1, 1, b'\x00\x00',
                           1, 1, b'\x00\x00',
@@ -108,14 +103,13 @@ class ftTXT(object):
         return None
 
 
-    def setConfig(self, M, I):
+    def setConfig(self, I):
         print('setConfig')
         self._config_id += 1
         # Configuration of motors
         # 0=single output O1/O2
         # 1=motor output M1
         # self.ftX1_motor          = [M[0],M[1],M[2],M[3]]  # BOOL8[4]
-        self._ftX1_motor = M
         # Universal input mode, see enum InputMode:
         # MODE_U=0
         # MODE_R=1
@@ -123,7 +117,6 @@ class ftTXT(object):
         # MODE_ULTRASONIC=3
         # MODE_INVALID=4
         print("setConfig I=", I)
-        print("setConfig M=", M)
         print("_ftX1_uni  =", self._ftX1_uni)
         self._ftX1_uni = [I[0][0], I[0][1], b'\x00\x00',
                           I[1][0], I[1][1], b'\x00\x00',
@@ -137,11 +130,10 @@ class ftTXT(object):
         return None
 
     def getConfig(self):
-        m = self._ftX1_motor
         i = self._ftX1_uni
         ii = [(i[0], i[1]), (i[3], i[4]), (i[6], i[7]), (i[9], i[10]),
               (i[12], i[13]), (i[15], i[16]), (i[18], i[19]), (i[21], i[22])]
-        return m, ii
+        return ii
 
     def incrMotorCmdId(self, idx):
         self._exchange_data_lock.acquire()
@@ -343,15 +335,19 @@ class ftTXTexchange(threading.Thread):
                     else:
                         # fall back to default case
                         direct_mode = ftTXT.C_MOT_INPUT_ANALOG_VOLTAGE
-                    print('inp index  =', int(k / 2));
+                    print('inp index  =', int(k / 2))
                     print('inp value  =', inp[int(k / 2)])
                     print('direct_mode =', direct_mode)
                     print('(direct_mode & 0x0F) =', (direct_mode & 0x0F))
                     print('(4 * (k % 2))        =', (4 * (k % 2)))
                     inp[int(k / 2)] |= (direct_mode & 0x0F) << (4 * (k % 2))
+                print('inp 0', inp[0])
                 fields.append(inp[0])
+                print('inp 1', inp[1])
                 fields.append(inp[1])
+                print('inp 2', inp[2])
                 fields.append(inp[2])
+                print('inp 3', inp[3])
                 fields.append(inp[3])
                 # fmtstr += 'BBBB'
                 fields.append(0)  # CRC (not used ?)
@@ -521,7 +517,7 @@ class ftTXTexchange(threading.Thread):
             # inputs
             #
             print("ftTXTexchange.run -> getConfig")
-            m, i = self._txt.getConfig()
+            i = self._txt.getConfig()
             for k in range(8):
                 if i[k][1] == ftTXT.C_DIGITAL:
                     if response[4] & (1 << k):
@@ -717,9 +713,8 @@ class ftrobopy(ftTXT):
                 self._outer._exchange_data_lock.release()
 
         print('getConfig-> motor ', output)
-        M, I = self.getConfig()
-        M[output - 1] = ftTXT.C_MOTOR
-        self.setConfig(M, I)
+        I = self.getConfig()
+        self.setConfig(I)
         if wait:
             self.updateWait()
         return mot(self, output)
@@ -739,9 +734,8 @@ class ftrobopy(ftTXT):
                 self._outer._exchange_data_lock.release()
 
         print('getConfig-> output ', num, ' level ', level)
-        M, I = self.getConfig()
-        M[int((num - 1) / 2)] = ftTXT.C_OUTPUT
-        self.setConfig(M, I)
+        I = self.getConfig()
+        self.setConfig(I)
         if  wait:
             self.updateWait()
         return out(self, num, level)
@@ -757,9 +751,9 @@ class ftrobopy(ftTXT):
                 return self._outer.getCurrentInput(num - 1)
 
         print('getConfig-> input ', num)
-        M, I = self.getConfig()
+        I = self.getConfig()
         I[num - 1] = (ftTXT.C_SWITCH, ftTXT.C_DIGITAL)
-        self.setConfig(M, I)
+        self.setConfig(I)
         if  wait:
             self.updateWait()
         return inp(self, num)
@@ -786,9 +780,9 @@ class ftrobopy(ftTXT):
                 return T
 
         print('getConfig-> resistor ', num)
-        M, I = self.getConfig()
+        I = self.getConfig()
         I[num - 1] = (ftTXT.C_RESISTOR, ftTXT.C_ANALOG)
-        self.setConfig(M, I)
+        self.setConfig(I)
         if wait:
             self.updateWait()
         return inp(self, num)
@@ -804,9 +798,9 @@ class ftrobopy(ftTXT):
                 return self._outer.getCurrentInput(num - 1)
 
         print('getConfig-> ultrasonic ', num)
-        M, I = self.getConfig()
+        I = self.getConfig()
         I[num - 1] = (ftTXT.C_ULTRASONIC, ftTXT.C_ANALOG)
-        self.setConfig(M, I)
+        self.setConfig(I)
         if  wait:
             self.updateWait()
         return inp(self, num)
@@ -821,9 +815,9 @@ class ftrobopy(ftTXT):
                 return self._outer.getCurrentInput(num - 1)
 
         print('getConfig-> voltage ', num)
-        M, I = self.getConfig()
+        I = self.getConfig()
         I[num - 1] = (ftTXT.C_VOLTAGE, ftTXT.C_ANALOG)
-        self.setConfig(M, I)
+        self.setConfig(I)
         if  wait:
             self.updateWait()
         return inp(self, num)
@@ -847,9 +841,9 @@ class ftrobopy(ftTXT):
                     return 'blau'
 
         print('getConfig-> colorsensor ', num)
-        M, I = self.getConfig()
+        I = self.getConfig()
         I[num - 1] = (ftTXT.C_VOLTAGE, ftTXT.C_ANALOG)
-        self.setConfig(M, I)
+        self.setConfig(I)
         if  wait:
             self.updateWait()
         return inp(self, num)
@@ -872,9 +866,9 @@ class ftrobopy(ftTXT):
                         return 0
 
         print('getConfig-> trailfollower ', num)
-        M, I = self.getConfig()
+        I = self.getConfig()
         I[num - 1] = (ftTXT.C_VOLTAGE, ftTXT.C_DIGITAL)
-        self.setConfig(M, I)
+        self.setConfig( I)
         if  wait:
             self.updateWait()
         return inp(self, num)
@@ -883,14 +877,22 @@ TXT = ftrobopy()
 
 print("Start ...")
 
+print("Config Motor_rechts ...")
 Motor_rechts = TXT.motor(1)
+print("Config Motor_links ...")
 Motor_links = TXT.motor(2)
+print("Config Switch ...")
 Switch = TXT.input(1)
+print("Config Resistor ...")
 Resistor = TXT.resistor(3)
+print("Config UltraSonic ...")
 Ultraschall = TXT.ultrasonic(8)
-print('Sleep start');
+#print("Config Output ...")
+#Out1 = TXT.output(5,0)
+#Out1.setLevel(500)
+print('Sleep start')
 time.sleep(2)  # wait until initilized
-print('Sleep end');
+print('Sleep end')
 Motor_rechts.setSpeed(-512)
 Motor_links.setSpeed(-512)
 Motor_rechts.setDistance(1000, syncto=Motor_links)
@@ -904,3 +906,4 @@ while not Motor_rechts.finished():
     if d < 10:
         Motor_rechts.stop()
         Motor_links.stop()
+Out1.setLevel(0)
