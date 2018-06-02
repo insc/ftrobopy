@@ -363,10 +363,10 @@ class ftTXTexchange(threading.Thread):
                 # fmtstr += 'BBBBBB' # dummy bytes to fill up structure to 15 bytes in total
                 buflen = struct.calcsize(fmtstr)
                 buf = struct.pack(fmtstr, *fields)
-                print('buf w>', binascii.hexlify(buf))
+                print('IO buf w>', binascii.hexlify(buf))
                 self._txt._ser_ms.write(buf)
                 data = self._txt._ser_ms.read(len(buf))
-                print('buf r>', binascii.hexlify(data))
+                print('IO data r>', binascii.hexlify(data))
 
             #
             # transfer parameter data from TXT to motor shield
@@ -465,8 +465,14 @@ class ftTXTexchange(threading.Thread):
             buflen = struct.calcsize(fmtstr)
             fields[1] = buflen
             buf = struct.pack(fmtstr, *fields)
+            print('DATA buf len', buflen, len(buf))
+            print('DATA buf w>', binascii.hexlify(buf))
             self._txt._ser_ms.write(buf)
             data = self._txt._ser_ms.read(len(buf))
+            print('DATA data len', len(data))
+            print('DATA data r>', binascii.hexlify(data))
+            for ind in range(24):
+                print('_ftX1_uni', ind, self._txt._ftX1_uni[ind])
             # the answer of the motor shield has the following format
             #
             # fmtstr  = '<'
