@@ -9,19 +9,8 @@
 
 int main() {
 	int fd = open_ms_serialport();
-	char write_buffer[] = { 0x51, 0x01, 0x00, 0x11, 0x11, 0x11, 0x11, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	char buffer[15] = { 0x00 };
 
-
-	config_voltage(1);
-	config_voltage(2);
-	config_voltage(3);
-	config_voltage(4);
-	config_voltage(5);
-	config_voltage(6);
-	config_voltage(7);
-	config_voltage(8);
 	config_switch(1);
 	config_resistor(3);
 	config_ultra_sonic(8);
@@ -32,14 +21,11 @@ int main() {
 	for (int i = 0; i < sizeof(io_config); i++) {
 		printf("%02x ", *p++);
 	}
-	printf("\n");
-	for (int i = 0; i < 15; i++)
-		printf("%02x ", write_buffer[i]);
-
 	printf("\n +----------------------------------+\n");
 
 	for (int i = 0; i < 5; i++) {
-		int bytes_written = write_ms_serialport(fd, write_buffer, 15);
+		char* pbuffer = (char *) &io_config;
+		int bytes_written = write_ms_serialport(fd, pbuffer, 15);
 		printf("\n  Bytes written %d", bytes_written);
 		int bytes_read = read_ms_serialport(fd, buffer, 15);
 		printf("\n  Bytes read %d", bytes_read); /* Print the number of bytes read */

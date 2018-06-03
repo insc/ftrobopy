@@ -1,6 +1,7 @@
 #include "txtmotorshield.h"
 #include "txtserialport.h"
 #include <stdio.h>
+#include <stdbool.h>
 
 /* private */
 /*
@@ -14,7 +15,7 @@
  *
  */
 
-// command codes for TXT motor shield
+// command codes for TXT motor shiel
 #define C_MOT_CMD_CONFIG_IO  0x51
 #define C_MOT_CMD_EXCHANGE_DATA  0x54
 
@@ -29,32 +30,33 @@ char cycle_count = 0x00;
 char last_cycle_count = 0x00;
 int fd_serial_port;
 
-txt_io_config io_config = { .cmd = 0x00, .cycle = 0x00, .master = 0x00, .ftX1_uni = { 0x0, 0x00, 0x00, 0x00 }, .crc_1 = 0x00, .crc_2 = 0x00, .empty = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
+txt_io_config io_config = { .cmd = C_MOT_CMD_CONFIG_IO, .cycle = 0x00, .master = 0x00, .ftX1_uni = { 0x11, 0x11, 0x11, 0x11 }, .crc_1 = 0x00, .crc_2 = 0x00, .empty = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
 
 void increment_cycle_count() {
-	last_cycle_count = cycle_count++;
-	cycle_count = cycle_count % 16;
+	if (last_cycle_count == cycle_count) {
+		last_cycle_count = cycle_count++;
+		cycle_count = cycle_count % 16;
+	}
+}
+
+void set_cycle_count() {
+	io_config.cycle = cycle_count;
 }
 
 void set_input(int port, char config) {
 	int index = (port - 1) / 2;
-	printf("\nindex %d \n", index);
-	printf("ftX1_uni %02x \n", io_config.ftX1_uni[index]);
-	io_config.ftX1_uni[index] |= (config & 0x0F) << (4 * (port % 2));
-	printf("ftX1_uni %02x \n", io_config.ftX1_uni[index]);
-	printf("\n Struct io_config %d \n", sizeof(io_config));
-	char* p = (char *) &io_config;
-	for (int i = 0; i < sizeof(io_config); i++) {
-		printf("%02x ", *p++);
-	}
-	printf("\n");
+	bool high = (port - 1) % 2;
+	io_config.ftX1_uni[index] = (io_config.ftX1_uni[index] & (high == true ? 0x0F : 0xF0)) | (config << (4 * (high == true ? 1 : 0)));
+	increment_cycle_count();
+	set_cycle_count();
 }
+
+
 
 /*public */
 void open_init_motorshield() {
 	fd_serial_port = open_ms_serialport();
 	increment_cycle_count();
-	io_config.cmd = C_MOT_CMD_CONFIG_IO;
 	io_config.cycle = cycle_count;
 }
 void config_trail_follower(int port) {
